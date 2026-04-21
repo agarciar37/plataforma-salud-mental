@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from datetime import datetime, timezone
 from app.db import messages_collection
 from app.dependencies import get_current_user
 from app.schemas.chat import ChatRequest
 from app.services.emotion_service import detect_emotion
+from app.services.rate_limit_service import is_rate_limited
 from app.services.recommendation_service import get_recommendations
 from app.services.safety_service import (
     append_non_diagnostic_disclaimer,
     crisis_support_message,
+    get_crisis_resources,
     is_high_risk_message,
 )
 from openai import OpenAI
@@ -88,12 +90,18 @@ async def send_message(
     current_user=Depends(get_current_user)
 ):
     user_id = current_user["sub"]
+    if is_rate_limited(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Has enviado demasiados mensajes en poco tiempo. Espera un minuto e inténtalo de nuevo.",
+        )
+
     context = get_recent_context(user_id)
 
     if is_high_risk_message(request.message):
         emotion = "crisis"
         recommendations = get_recommendations(emotion)
-        ai_response = append_non_diagnostic_disclaimer(crisis_support_message())
+        ai_response = append_non_diagnostic_disclaimer(crisis_support_message("ES"))
     else:
         emotion = detect_emotion(request.message)
         recommendations = get_recommendations(emotion)
@@ -128,6 +136,14 @@ async def send_message(
         "created_at": created_at.isoformat(),
     }
 
+@router.get("/resources")
+def get_support_resources(country: str = Query("ES", min_length=2, max_length=2)):
+    resources = get_crisis_resources(country)
+    return {
+        "country": country.upper(),
+        "resources": resources,
+        "notice": "Este asistente orienta y acompaña; no realiza diagnósticos clínicos.",
+    }
 
 @router.get("/history")
 def get_chat_history(

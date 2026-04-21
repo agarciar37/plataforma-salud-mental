@@ -14,18 +14,37 @@ NON_DIAGNOSTIC_DISCLAIMER = (
     "ni sustituyo a un profesional de salud mental."
 )
 
+CRISIS_RESOURCES_BY_COUNTRY = {
+    "ES": [
+        "Emergencias: 112",
+        "Línea 024 (atención a la conducta suicida, España)",
+    ],
+    "US": [
+        "Emergencias: 911",
+        "988 Suicide & Crisis Lifeline",
+    ],
+}
+
 
 def is_high_risk_message(message: str) -> bool:
     normalized = message.lower()
     return any(keyword in normalized for keyword in HIGH_RISK_KEYWORDS)
 
 
-def crisis_support_message() -> str:
+def get_crisis_resources(country_code: str = "ES") -> list[str]:
+    normalized = country_code.upper()
+    return CRISIS_RESOURCES_BY_COUNTRY.get(normalized, [
+        "Emergencias: 112/911 según tu país",
+        "Línea de ayuda en crisis de tu zona",
+    ])
+
+
+def crisis_support_message(country_code: str = "ES") -> str:
+    resources = get_crisis_resources(country_code)
     return (
         "Siento mucho que estés pasando por esto. Tu seguridad es lo más importante ahora mismo. "
-        "Si crees que puedes hacerte daño o estás en peligro, contacta de inmediato con emergencias "
-        "(112/911 según tu país) o con una línea de ayuda en crisis de tu zona. "
-        "Si puedes, avisa también a una persona de confianza para que no estés solo/a."
+        "Si crees que puedes hacerte daño o estás en peligro, pide ayuda inmediata y no te quedes solo/a. "
+        f"Recursos sugeridos: {resources[0]}; {resources[1]}."
     )
 
 
