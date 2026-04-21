@@ -20,6 +20,11 @@ def get_recommendations(emotion: str) -> list[str]:
             "Llevar un pequeño registro emocional diario puede ayudarte a conocerte mejor.",
             "Hacer pausas breves durante el día puede mejorar tu bienestar general."
         ],
+        "crisis": [
+            "Contacta con emergencias (112/911 según tu país) si hay riesgo inmediato.",
+            "Busca apoyo de una persona de confianza y evita quedarte solo/a.",
+            "Acude a un profesional de salud mental para atención especializada."
+        ],
     }
 
     return recommendations.get(emotion, recommendations["neutral"])

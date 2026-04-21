@@ -3,27 +3,19 @@ from datetime import datetime, timezone
 from app.db import messages_collection
 from app.dependencies import get_current_user
 from app.schemas.chat import ChatRequest
+from app.services.emotion_service import detect_emotion
 from app.services.recommendation_service import get_recommendations
+from app.services.safety_service import (
+    append_non_diagnostic_disclaimer,
+    crisis_support_message,
+    is_high_risk_message,
+)
 from openai import OpenAI
 import os
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-
-def detect_emotion(message: str) -> str:
-    message = message.lower()
-
-    if any(word in message for word in ["triste", "mal", "deprimido", "vacío", "solo", "desanimado"]):
-        return "tristeza"
-    if any(word in message for word in ["ansioso", "nervioso", "estres", "agobiado", "preocupado", "saturado"]):
-        return "ansiedad"
-    if any(word in message for word in ["feliz", "bien", "contento", "motivado", "tranquilo", "alegre"]):
-        return "felicidad"
-
-    return "neutral"
-
 
 def get_recent_context(user_id: str, limit: int = 5) -> str:
     history = list(
@@ -96,17 +88,24 @@ async def send_message(
     current_user=Depends(get_current_user)
 ):
     user_id = current_user["sub"]
-    emotion = detect_emotion(request.message)
-    recommendations = get_recommendations(emotion)
     context = get_recent_context(user_id)
 
-    try:
-        ai_response = generate_ai_response(request.message, emotion, context)
-    except Exception:
-        ai_response = (
-            "Estoy aquí para escucharte. Gracias por compartir cómo te sientes. "
-            "Si quieres, puedes contarme un poco más para intentar orientarte mejor."
-        )
+    if is_high_risk_message(request.message):
+        emotion = "crisis"
+        recommendations = get_recommendations(emotion)
+        ai_response = append_non_diagnostic_disclaimer(crisis_support_message())
+    else:
+        emotion = detect_emotion(request.message)
+        recommendations = get_recommendations(emotion)
+
+        try:
+            ai_response = generate_ai_response(request.message, emotion, context)
+            ai_response = append_non_diagnostic_disclaimer(ai_response)
+        except Exception:
+            ai_response = append_non_diagnostic_disclaimer(
+                "Estoy aquí para escucharte. Gracias por compartir cómo te sientes. "
+                "Si quieres, puedes contarme un poco más para intentar orientarte mejor."
+            )
 
     created_at = datetime.now(timezone.utc)
 
@@ -164,6 +163,7 @@ def get_user_summary(current_user=Depends(get_current_user)):
         "tristeza": 0,
         "felicidad": 0,
         "neutral": 0,
+        "crisis": 0,
     }
 
     recent_messages = []
