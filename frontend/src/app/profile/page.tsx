@@ -13,6 +13,15 @@ const emotionColors: Record<string, string> = {
   crisis: "bg-red-500",
 };
 
+const emotionLabels: Record<string, string> = {
+  ansiedad: "Ansiedad",
+  estres: "Estrés",
+  tristeza: "Tristeza",
+  neutral: "Neutral",
+  positivo: "Positivo",
+  crisis: "Crisis",
+};
+
 type Summary = {
   user: { name: string; email: string };
   total_messages: number;
@@ -25,45 +34,107 @@ type Summary = {
 export default function ProfilePage() {
   const router = useRouter();
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return void router.push("/login");
+    const loadSummary = async () => {
+      const token = localStorage.getItem("token");
 
-    getUserSummary(token).then(setSummary);
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getUserSummary(token);
+        setSummary(data);
+      } catch (err) {
+        console.error("Error cargando el perfil:", err);
+        setError("No se pudo cargar el perfil emocional. Inténtalo de nuevo.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSummary();
   }, [router]);
 
   const totalEmotionCount = useMemo(() => {
     if (!summary) return 0;
-    return Object.values(summary.emotion_counts).reduce((acc, value) => acc + Number(value), 0);
+    return Object.values(summary.emotion_counts).reduce(
+      (acc, value) => acc + Number(value),
+      0
+    );
   }, [summary]);
 
-  if (!summary) return <p className="p-6">Cargando perfil emocional...</p>;
+  if (loading) {
+    return <p className="p-6">Cargando perfil emocional...</p>;
+  }
+
+  if (error) {
+    return (
+      <main className="min-h-screen bg-slate-100 p-6">
+        <div className="mx-auto max-w-3xl rounded-2xl border bg-white p-6 shadow-sm">
+          <h1 className="text-2xl font-bold text-slate-900">Perfil emocional</h1>
+          <p className="mt-3 text-red-600">{error}</p>
+          <button
+            onClick={() => router.push("/chat")}
+            className="mt-5 rounded-lg border bg-white px-4 py-2 hover:bg-slate-50"
+          >
+            Volver al chat
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  if (!summary) {
+    return <p className="p-6">No hay datos del perfil emocional.</p>;
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 p-6">
       <div className="mx-auto max-w-5xl space-y-5">
         <div className="rounded-2xl border bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-bold text-slate-900">Perfil emocional</h1>
-          <p className="mt-2 text-slate-600">{summary.user.name} · {summary.user.email}</p>
-          <p className="mt-1 text-sm text-slate-500">Mensajes analizados: {summary.total_messages}</p>
+          <h1 className="text-2xl font-bold text-slate-900">
+            Perfil emocional
+          </h1>
+          <p className="mt-2 text-slate-600">
+            {summary.user.name} · {summary.user.email}
+          </p>
+          <p className="mt-1 text-sm text-slate-500">
+            Mensajes analizados: {summary.total_messages}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <section className="rounded-2xl border bg-white p-6 shadow-sm">
-            <h2 className="font-semibold text-slate-900">Distribución de emociones</h2>
+            <h2 className="font-semibold text-slate-900">
+              Distribución de emociones
+            </h2>
             <div className="mt-4 space-y-3">
               {Object.entries(summary.emotion_counts).map(([emotion, count]) => {
-                const pct = totalEmotionCount > 0 ? Math.round((count / totalEmotionCount) * 100) : 0;
+                const pct =
+                  totalEmotionCount > 0
+                    ? Math.round((count / totalEmotionCount) * 100)
+                    : 0;
+
                 return (
                   <div key={emotion}>
                     <div className="mb-1 flex justify-between text-sm text-slate-700">
-                      <span>{emotion}</span>
-                      <span>{count} ({pct}%)</span>
+                      <span>{emotionLabels[emotion] || emotion}</span>
+                      <span>
+                        {count} ({pct}%)
+                      </span>
                     </div>
                     <div className="h-2 rounded-full bg-slate-100">
                       <div
-                        className={`h-2 rounded-full ${emotionColors[emotion] || "bg-slate-500"}`}
+                        className={`h-2 rounded-full ${
+                          emotionColors[emotion] || "bg-slate-500"
+                        }`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -74,43 +145,74 @@ export default function ProfilePage() {
           </section>
 
           <section className="rounded-2xl border bg-white p-6 shadow-sm">
-                <h2 className="font-semibold text-slate-900">Frecuencia semanal</h2>
-                <div className="mt-4 space-y-2 text-sm text-slate-700">
-                  {Object.keys(summary.weekly_frequency || {}).length === 0 && <p>Sin actividad en la última semana.</p>}
-                  {Object.entries(summary.weekly_frequency || {}).map(([day, value]) => (
-                    <div key={day} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                      <span>{day}</span>
-                      <span className="font-medium">{value} mensajes</span>
-                    </div>
-                  ))}
-                </div>
+            <h2 className="font-semibold text-slate-900">
+              Frecuencia semanal
+            </h2>
+            <div className="mt-4 space-y-2 text-sm text-slate-700">
+              {Object.keys(summary.weekly_frequency || {}).length === 0 && (
+                <p>Sin actividad en la última semana.</p>
+              )}
+
+              {Object.entries(summary.weekly_frequency || {}).map(
+                ([day, value]) => (
+                  <div
+                    key={day}
+                    className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"
+                  >
+                    <span>{day}</span>
+                    <span className="font-medium">{value} mensajes</span>
+                  </div>
+                )
+              )}
+            </div>
           </section>
         </div>
 
         <section className="rounded-2xl border bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-900">Últimas emociones predominantes</h2>
+          <h2 className="font-semibold text-slate-900">
+            Últimas emociones predominantes
+          </h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {(summary.predominant_recent || []).map((emotion, idx) => (
-              <span key={`${emotion}-${idx}`} className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
-                {emotion}
+              <span
+                key={`${emotion}-${idx}`}
+                className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+              >
+                {emotionLabels[emotion] || emotion}
               </span>
             ))}
-          </div>            
+          </div>
 
-          <h3 className="mt-6 font-semibold text-slate-900">Evolución temporal</h3>
-            <div className="mt-3 space-y-2">
-                {(summary.emotion_timeline || []).map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                    <span>{item.emotion}</span>
-                    <span className="text-slate-500">{new Date(item.created_at).toLocaleString()}</span>
-                  </div>
-                ))}
+          <h3 className="mt-6 font-semibold text-slate-900">
+            Evolución temporal
+          </h3>
+          <div className="mt-3 space-y-2">
+            {(summary.emotion_timeline || []).length === 0 && (
+              <p className="text-sm text-slate-500">
+                Todavía no hay suficiente historial para mostrar evolución.
+              </p>
+            )}
+
+            {(summary.emotion_timeline || []).map((item, idx) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
+              >
+                <span>{emotionLabels[item.emotion] || item.emotion}</span>
+                <span className="text-slate-500">
+                  {new Date(item.created_at).toLocaleString()}
+                </span>
               </div>
-          </section>
-          
-        <button onClick={() => router.push("/chat")} className="rounded-lg border bg-white px-4 py-2 hover:bg-slate-50">
+            ))}
+          </div>
+        </section>
+
+        <button
+          onClick={() => router.push("/chat")}
+          className="rounded-lg border bg-white px-4 py-2 hover:bg-slate-50"
+        >
           Volver al chat
-        </button>        
+        </button>
       </div>
     </main>
   );

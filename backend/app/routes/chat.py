@@ -21,6 +21,15 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+
+def normalize_datetime(dt: datetime | None) -> datetime | None:
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def get_recent_context(user_id: str, limit: int = 8) -> str:
     history = list(
         messages_collection.find({"user_id": user_id}).sort("created_at", -1).limit(limit)
@@ -179,16 +188,20 @@ async def send_message(request: ChatRequest, current_user=Depends(get_current_us
         "created_at": created_at.isoformat(),
     }
 
+
 @router.get("/history")
 def get_chat_history(limit: int = Query(20), current_user=Depends(get_current_user)):
-    messages = (
-        list(messages_collection.find({"user_id": current_user["sub"]}).sort("created_at", -1).limit(limit))
+    messages = list(
+        messages_collection.find({"user_id": current_user["sub"]})
+        .sort("created_at", -1)
+        .limit(limit)
     )
 
     for msg in messages:
         msg["_id"] = str(msg["_id"])
-        if msg.get("created_at"):
-            msg["created_at"] = msg["created_at"].isoformat()
+        created = normalize_datetime(msg.get("created_at"))
+        if created:
+            msg["created_at"] = created.isoformat()
 
     messages.reverse()
     return messages
@@ -196,11 +209,13 @@ def get_chat_history(limit: int = Query(20), current_user=Depends(get_current_us
 
 @router.get("/summary")
 def get_user_summary(current_user=Depends(get_current_user)):
-    messages = list(messages_collection.find({"user_id": current_user["sub"]}).sort("created_at", -1))
+    messages = list(
+        messages_collection.find({"user_id": current_user["sub"]}).sort("created_at", -1)
+    )
 
     emotion_counts = {
         "ansiedad": 0,
-        "estrés": 0,
+        "estres": 0,
         "tristeza": 0,
         "neutral": 0,
         "positivo": 0,
@@ -221,7 +236,8 @@ def get_user_summary(current_user=Depends(get_current_user)):
         else:
             emotion_counts["neutral"] += 1
 
-        created = msg.get("created_at")
+        created = normalize_datetime(msg.get("created_at"))
+
         if created and created >= week_start:
             key = created.date().isoformat()
             weekly_counts[key] = weekly_counts.get(key, 0) + 1

@@ -1,4 +1,20 @@
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+async function handleResponse(response: Response) {
+  let data;
+
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("Error de red o respuesta inválida del servidor");
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.detail || "Error en la petición");
+  }
+
+  return data;
+}
 
 export async function registerUser(data: {
   name: string;
@@ -13,13 +29,7 @@ export async function registerUser(data: {
     body: JSON.stringify(data),
   });
 
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.detail || "Error al registrar usuario");
-  }
-
-  return result;
+  return handleResponse(response);
 }
 
 export async function loginUser(data: {
@@ -34,13 +44,7 @@ export async function loginUser(data: {
     body: JSON.stringify(data),
   });
 
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.detail || "Error al iniciar sesión");
-  }
-
-  return result;
+  return handleResponse(response);
 }
 
 export async function sendChatMessage(message: string, token: string) {
@@ -53,13 +57,7 @@ export async function sendChatMessage(message: string, token: string) {
     body: JSON.stringify({ message }),
   });
 
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.detail || "Error al enviar mensaje");
-  }
-
-  return result;
+  return handleResponse(response);
 }
 
 export async function getChatHistory(token: string) {
@@ -70,13 +68,7 @@ export async function getChatHistory(token: string) {
     },
   });
 
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.detail || "Error al obtener historial");
-  }
-
-  return result;
+  return handleResponse(response);
 }
 
 export async function getUserSummary(token: string) {
@@ -87,11 +79,5 @@ export async function getUserSummary(token: string) {
     },
   });
 
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.detail || "Error al obtener el resumen");
-  }
-
-  return result;
+  return handleResponse(response);
 }
