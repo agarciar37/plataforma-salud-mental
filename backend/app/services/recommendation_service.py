@@ -28,7 +28,6 @@ def get_recommendations(emotion: str) -> list[str]:
         "crisis": [
             "Contacta con emergencias (112/911 según tu país) si hay riesgo inmediato.",
             "Busca apoyo de una persona de confianza y evita quedarte solo/a.",
-            "Acude a un profesional de salud mental para atención especializada."
             "Acude a un profesional de salud mental para atención especializada.",
         ],
     }

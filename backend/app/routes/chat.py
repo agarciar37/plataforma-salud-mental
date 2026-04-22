@@ -130,8 +130,8 @@ async def send_message(request: ChatRequest, current_user=Depends(get_current_us
     if is_high_risk_message(request.message):
         emotion = "crisis"
         recommendations = []
-        ai_response = append_non_diagnostic_disclaimer(crisis_support_message("US"))
-        crisis_resources = get_crisis_resources("US")
+        ai_response = append_non_diagnostic_disclaimer(crisis_support_message("ES"))
+        crisis_resources = get_crisis_resources("ES")
     else:
         emotion = detect_emotion(request.message)
         recommendations = get_recommendations(emotion)
