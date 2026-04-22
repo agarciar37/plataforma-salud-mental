@@ -9,7 +9,7 @@ const resources: QuickResource[] = [
     description: "Inhala 4 segundos, mantén 4 y exhala 6. Repite durante 2 minutos.",
   },
   {
-    title: "Journaling rápido",
+    title: "Diario rápido",
     description: "Escribe durante 5 minutos qué sientes, qué lo causa y qué necesitas ahora.",
   },
   {

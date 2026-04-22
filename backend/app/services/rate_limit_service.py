@@ -1,12 +1,10 @@
 from collections import deque
 from datetime import datetime, timedelta, timezone
 
-# Límite simple en memoria para entorno de desarrollo/demo.
 WINDOW_SECONDS = 60
 from collections import deque
 from datetime import datetime, timedelta, timezone
 
-# Límite simple en memoria para entorno de desarrollo/demo.
 WINDOW_SECONDS = 60
 MAX_MESSAGES_PER_WINDOW = 15
 

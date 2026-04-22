@@ -12,6 +12,7 @@ from app.services.safety_service import (
     get_crisis_resources,
     is_high_risk_message,
 )
+from app.services.privacy_service import redact_pii
 from openai import OpenAI
 import os
 
@@ -55,7 +56,6 @@ Normas:
 - No sustituyas ayuda profesional.
 - No repitas siempre la misma estructura.
 - Adapta la respuesta al mensaje actual y al contexto previo.
-- Responde en español.
 - Sé útil y humano, pero sin sonar excesivamente teatral.
 """
 
@@ -98,6 +98,11 @@ async def send_message(
 
     context = get_recent_context(user_id)
 
+    redacted_message, message_was_redacted, message_detected_types = redact_pii(request.message)
+    redacted_context, context_was_redacted, context_detected_types = redact_pii(context)
+    detected_types = sorted(set(message_detected_types + context_detected_types))
+    redaction_applied = message_was_redacted or context_was_redacted
+
     if is_high_risk_message(request.message):
         emotion = "crisis"
         recommendations = get_recommendations(emotion)
@@ -107,7 +112,7 @@ async def send_message(
         recommendations = get_recommendations(emotion)
 
         try:
-            ai_response = generate_ai_response(request.message, emotion, context)
+            ai_response = generate_ai_response(request.message, emotion, redacted_context)
             ai_response = append_non_diagnostic_disclaimer(ai_response)
         except Exception:
             ai_response = append_non_diagnostic_disclaimer(
@@ -123,6 +128,8 @@ async def send_message(
         "assistant_message": ai_response,
         "emotion": emotion,
         "recommendations": recommendations,
+        "redaction_applied": redaction_applied,
+        "detected_sensitive_types": detected_types,
         "created_at": created_at,
     }
 
@@ -133,17 +140,19 @@ async def send_message(
         "assistant_message": ai_response,
         "emotion": emotion,
         "recommendations": recommendations,
+        "redaction_applied": redaction_applied,
+        "detected_sensitive_types": detected_types,
         "created_at": created_at.isoformat(),
     }
 
-@router.get("/resources")
-def get_support_resources(country: str = Query("ES", min_length=2, max_length=2)):
-    resources = get_crisis_resources(country)
-    return {
-        "country": country.upper(),
-        "resources": resources,
-        "notice": "Este asistente orienta y acompaña; no realiza diagnósticos clínicos.",
-    }
+#@router.get("/resources")
+#def get_support_resources(country: str = Query("ES", min_length=2, max_length=2)):
+ #   resources = get_crisis_resources(country)
+  #  return {
+   #     "country": country.upper(),
+    #    "resources": resources,
+     #   "notice": "Este asistente orienta y acompaña; no realiza diagnósticos clínicos.",
+    #}
 
 @router.get("/history")
 def get_chat_history(
