@@ -3,17 +3,22 @@ def get_recommendations(emotion: str) -> list[str]:
         "tristeza": [
             "Escribe durante unos minutos cómo te sientes para ordenar tus pensamientos.",
             "Hablar con alguien de confianza puede ayudarte a sentirte acompañado.",
-            "Haz una actividad breve que normalmente te aporte calma o consuelo."
+            "Haz una actividad breve que normalmente te aporte calma o consuelo.",
         ],
         "ansiedad": [
             "Prueba a hacer respiraciones lentas durante uno o dos minutos.",
             "Intenta centrarte solo en la siguiente tarea inmediata.",
-            "Reducir estímulos durante un rato puede ayudarte a bajar el agobio."
+            "Reducir estímulos durante un rato puede ayudarte a bajar el agobio.",
         ],
-        "felicidad": [
+        "estres": [
+            "Haz una pausa breve y divide la tarea principal en pasos pequeños.",
+            "Identifica una prioridad realista para las próximas 2 horas.",
+            "Alterna 25 minutos de foco con 5 minutos de descanso."
+        ],
+        "positivo": [
             "Identifica qué está contribuyendo a que te sientas así para reforzarlo.",
             "Aprovecha este momento para consolidar hábitos positivos.",
-            "Compartir este estado con alguien cercano también puede reforzarlo."
+            "Compartir este estado con alguien cercano también puede reforzarlo.",
         ],
         "neutral": [
             "Si quieres, puedes profundizar un poco más en cómo te has sentido hoy.",
@@ -24,6 +29,7 @@ def get_recommendations(emotion: str) -> list[str]:
             "Contacta con emergencias (112/911 según tu país) si hay riesgo inmediato.",
             "Busca apoyo de una persona de confianza y evita quedarte solo/a.",
             "Acude a un profesional de salud mental para atención especializada."
+            "Acude a un profesional de salud mental para atención especializada.",
         ],
     }
 

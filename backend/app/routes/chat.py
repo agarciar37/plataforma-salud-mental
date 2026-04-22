@@ -1,9 +1,13 @@
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+import os
+from openai import OpenAI
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from datetime import datetime, timezone
 from app.db import messages_collection
 from app.dependencies import get_current_user
 from app.schemas.chat import ChatRequest
 from app.services.emotion_service import detect_emotion
+from app.services.privacy_service import redact_pii
 from app.services.rate_limit_service import is_rate_limited
 from app.services.recommendation_service import get_recommendations
 from app.services.safety_service import (
@@ -12,20 +16,14 @@ from app.services.safety_service import (
     get_crisis_resources,
     is_high_risk_message,
 )
-from app.services.privacy_service import redact_pii
-from openai import OpenAI
-import os
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def get_recent_context(user_id: str, limit: int = 5) -> str:
+def get_recent_context(user_id: str, limit: int = 8) -> str:
     history = list(
-        messages_collection
-        .find({"user_id": user_id})
-        .sort("created_at", -1)
-        .limit(limit)
+        messages_collection.find({"user_id": user_id}).sort("created_at", -1).limit(limit)
     )
 
     history.reverse()
@@ -40,7 +38,32 @@ def get_recent_context(user_id: str, limit: int = 5) -> str:
     return "\n".join(context_lines)
 
 
-def generate_ai_response(user_message: str, emotion: str, context: str) -> str:
+def build_profile_memory(user_id: str) -> str:
+    lookback_days = 14
+    since = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+    messages = list(
+        messages_collection.find({"user_id": user_id, "created_at": {"$gte": since}})
+        .sort("created_at", -1)
+        .limit(50)
+    )
+
+    if not messages:
+        return "Sin historial emocional relevante todavía."
+
+    emotions = [item.get("emotion", "neutral") for item in messages]
+    counts = Counter(emotions)
+    top_three = counts.most_common(3)
+    predominant = ", ".join([f"{emotion} ({count})" for emotion, count in top_three])
+    recent = emotions[:5]
+    recent_text = ", ".join(recent)
+
+    return (
+        f"Ventana de {lookback_days} días. Emociones predominantes: {predominant}. "
+        f"Últimas emociones registradas: {recent_text}."
+    )
+
+
+def generate_ai_response(user_message: str, emotion: str, context: str, profile_memory: str) -> str:
     system_prompt = """
 Eres un asistente de apoyo emocional basado en inteligencia artificial.
 
@@ -56,6 +79,7 @@ Normas:
 - No sustituyas ayuda profesional.
 - No repitas siempre la misma estructura.
 - Adapta la respuesta al mensaje actual y al contexto previo.
+- Usa el perfil emocional para ajustar tono y sugerencias sin etiquetar ni juzgar al usuario.
 - Sé útil y humano, pero sin sonar excesivamente teatral.
 """
 
@@ -64,6 +88,9 @@ Emoción detectada del usuario: {emotion}
 
 Contexto reciente de la conversación:
 {context if context else "No hay contexto previo."}
+
+Memoria de perfil emocional:
+{profile_memory}
 
 Mensaje actual del usuario:
 "{user_message}"
@@ -85,10 +112,7 @@ Genera una respuesta breve o media, coherente con el contexto, empática y perso
 
 
 @router.post("/message")
-async def send_message(
-    request: ChatRequest,
-    current_user=Depends(get_current_user)
-):
+async def send_message(request: ChatRequest, current_user=Depends(get_current_user)):
     user_id = current_user["sub"]
     if is_rate_limited(user_id):
         raise HTTPException(
@@ -105,14 +129,22 @@ async def send_message(
 
     if is_high_risk_message(request.message):
         emotion = "crisis"
-        recommendations = get_recommendations(emotion)
-        ai_response = append_non_diagnostic_disclaimer(crisis_support_message("ES"))
+        recommendations = []
+        ai_response = append_non_diagnostic_disclaimer(crisis_support_message("US"))
+        crisis_resources = get_crisis_resources("US")
     else:
         emotion = detect_emotion(request.message)
         recommendations = get_recommendations(emotion)
+        crisis_resources = []
+        profile_memory = build_profile_memory(user_id)
 
         try:
-            ai_response = generate_ai_response(request.message, emotion, redacted_context)
+            ai_response = generate_ai_response(
+                redacted_message,
+                emotion,
+                redacted_context,
+                profile_memory,
+            )
             ai_response = append_non_diagnostic_disclaimer(ai_response)
         except Exception:
             ai_response = append_non_diagnostic_disclaimer(
@@ -140,30 +172,17 @@ async def send_message(
         "assistant_message": ai_response,
         "emotion": emotion,
         "recommendations": recommendations,
+        "crisis_detected": emotion == "crisis",
+        "crisis_resources": crisis_resources,
         "redaction_applied": redaction_applied,
         "detected_sensitive_types": detected_types,
         "created_at": created_at.isoformat(),
     }
 
-#@router.get("/resources")
-#def get_support_resources(country: str = Query("ES", min_length=2, max_length=2)):
- #   resources = get_crisis_resources(country)
-  #  return {
-   #     "country": country.upper(),
-    #    "resources": resources,
-     #   "notice": "Este asistente orienta y acompaña; no realiza diagnósticos clínicos.",
-    #}
-
 @router.get("/history")
-def get_chat_history(
-    limit: int = Query(20),
-    current_user=Depends(get_current_user)
-):
-    messages = list(
-        messages_collection
-        .find({"user_id": current_user["sub"]})
-        .sort("created_at", -1)
-        .limit(limit)
+def get_chat_history(limit: int = Query(20), current_user=Depends(get_current_user)):
+    messages = (
+        list(messages_collection.find({"user_id": current_user["sub"]}).sort("created_at", -1).limit(limit))
     )
 
     for msg in messages:
@@ -177,21 +196,22 @@ def get_chat_history(
 
 @router.get("/summary")
 def get_user_summary(current_user=Depends(get_current_user)):
-    messages = list(
-        messages_collection
-        .find({"user_id": current_user["sub"]})
-        .sort("created_at", -1)
-    )
+    messages = list(messages_collection.find({"user_id": current_user["sub"]}).sort("created_at", -1))
 
     emotion_counts = {
         "ansiedad": 0,
+        "estrés": 0,
         "tristeza": 0,
-        "felicidad": 0,
         "neutral": 0,
+        "positivo": 0,
         "crisis": 0,
     }
 
     recent_messages = []
+    weekly_counts = {}
+
+    now = datetime.now(timezone.utc)
+    week_start = now - timedelta(days=7)
 
     for msg in messages:
         emotion = msg.get("emotion", "neutral")
@@ -201,12 +221,27 @@ def get_user_summary(current_user=Depends(get_current_user)):
         else:
             emotion_counts["neutral"] += 1
 
-        recent_messages.append({
-            "user_message": msg.get("user_message", ""),
-            "assistant_message": msg.get("assistant_message", ""),
-            "emotion": emotion,
-            "created_at": msg.get("created_at").isoformat() if msg.get("created_at") else None,
-        })
+        created = msg.get("created_at")
+        if created and created >= week_start:
+            key = created.date().isoformat()
+            weekly_counts[key] = weekly_counts.get(key, 0) + 1
+
+        recent_messages.append(
+            {
+                "user_message": msg.get("user_message", ""),
+                "assistant_message": msg.get("assistant_message", ""),
+                "emotion": emotion,
+                "created_at": created.isoformat() if created else None,
+            }
+        )
+
+    emotion_timeline = [
+        {"emotion": msg["emotion"], "created_at": msg["created_at"]}
+        for msg in reversed(recent_messages[:20])
+        if msg["created_at"]
+    ]
+
+    predominant_recent = [msg["emotion"] for msg in recent_messages[:5]]
 
     return {
         "user": {
@@ -216,5 +251,8 @@ def get_user_summary(current_user=Depends(get_current_user)):
         },
         "total_messages": len(messages),
         "emotion_counts": emotion_counts,
+        "predominant_recent": predominant_recent,
+        "weekly_frequency": weekly_counts,
+        "emotion_timeline": emotion_timeline,
         "recent_messages": recent_messages[:5],
     }

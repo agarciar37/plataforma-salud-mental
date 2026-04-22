@@ -15,14 +15,16 @@ NON_DIAGNOSTIC_DISCLAIMER = (
 )
 
 CRISIS_RESOURCES_BY_COUNTRY = {
-    "ES": [
-        "Emergencias: 112",
-        "Línea 024 (atención a la conducta suicida, España)",
-    ],
-    "US": [
-        "Emergencias: 911",
-        "988 Suicide & Crisis Lifeline",
-    ],
+    "ES": {
+        "emergency": "Emergencias: 112",
+        "hotline": "Línea 024 (atención a la conducta suicida, España)",
+        "active_help": "Pide a alguien de confianza que te acompañe presencialmente ahora.",
+    },
+    "US": {
+        "emergency": "Emergencias: 911",
+        "hotline": "988 Suicide & Crisis Lifeline (call/text/chat)",
+        "active_help": "Contacta una persona de confianza y mantente acompañado/a mientras buscas ayuda.",
+    },
 }
 
 
@@ -33,18 +35,26 @@ def is_high_risk_message(message: str) -> bool:
 
 def get_crisis_resources(country_code: str = "ES") -> list[str]:
     normalized = country_code.upper()
-    return CRISIS_RESOURCES_BY_COUNTRY.get(normalized, [
+    resource = CRISIS_RESOURCES_BY_COUNTRY.get(normalized)
+
+    if resource:
+        return [resource["emergency"], resource["hotline"], resource["active_help"]]
+
+    return [
         "Emergencias: 112/911 según tu país",
         "Línea de ayuda en crisis de tu zona",
-    ])
+        "Busca apoyo inmediato de una persona de confianza.",
+    ]
 
 
 def crisis_support_message(country_code: str = "ES") -> str:
-    resources = get_crisis_resources(country_code)
+    emergency, hotline, active_help = get_crisis_resources(country_code)
     return (
-        "Siento mucho que estés pasando por esto. Tu seguridad es lo más importante ahora mismo. "
-        "Si crees que puedes hacerte daño o estás en peligro, pide ayuda inmediata y no te quedes solo/a. "
-        f"Recursos sugeridos: {resources[0]}; {resources[1]}."
+        "🚨 CRISIS DETECTADA\n"
+        "1) Si hay riesgo inmediato, llama ahora mismo a emergencias.\n"
+        f"2) {emergency}.\n"
+        f"3) {hotline}.\n"
+        f"4) {active_help}"
     )
 
 
