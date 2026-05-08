@@ -30,6 +30,15 @@ const emotionLabels: Record<string, string> = {
   crisis: "Crisis",
 };
 
+const emotionStyles: Record<string, string> = {
+  ansiedad: "bg-amber-100 text-amber-800 ring-amber-200",
+  estres: "bg-orange-100 text-orange-800 ring-orange-200",
+  tristeza: "bg-blue-100 text-blue-800 ring-blue-200",
+  neutral: "bg-slate-100 text-slate-700 ring-slate-200",
+  positivo: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+  crisis: "bg-red-100 text-red-800 ring-red-200",
+};
+
 export default function ChatPage() {
   const router = useRouter();
 
@@ -40,7 +49,11 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeCrisis, setActiveCrisis] = useState<ChatItem | null>(null);
+  const chatStartRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const summaryRef = useRef<HTMLElement | null>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
@@ -136,148 +149,234 @@ export default function ChatPage() {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
+  const scrollToChatStart = () => {
+    chatStartRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const scrollToChatEnd = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  };
+
+  const focusComposer = () => {
+    messageInputRef.current?.focus();
+  }; 
+
   if (activeCrisis) {
     return (
-      <main className="min-h-screen bg-red-50 p-6">
-        <div className="mx-auto max-w-2xl rounded-2xl border border-red-200 bg-white p-6 shadow-md">
-          <h1 className="text-2xl font-bold text-red-700">Necesitas apoyo inmediato</h1>
-          <p className="mt-3 text-slate-700">
-            Hemos detectado señales de crisis en tu mensaje. Tu seguridad es prioritaria.
-          </p>
+      <main className="flex min-h-screen items-center justify-center px-6 py-12">
+        <section className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-red-100 bg-white/90 shadow-2xl shadow-red-100/70 backdrop-blur">
+          <div className="bg-gradient-to-br from-red-500 to-rose-600 p-6 text-white">
+            <p className="text-sm font-bold uppercase tracking-[0.24em] text-red-100">
+              Prioridad inmediata
+            </p>
+            <h1 className="mt-2 text-3xl font-black">Necesitas apoyo inmediato</h1>
+            <p className="mt-3 leading-7 text-red-50">
+              Hemos detectado señales de crisis en tu mensaje. Tu seguridad es prioritaria.
+            </p>
+          </div>
 
-          <ul className="mt-4 list-disc space-y-2 pl-5 text-slate-700">
-            {(activeCrisis.crisis_resources || []).map((resource, idx) => (
-              <li key={idx}>{resource}</li>
-            ))}
-          </ul>
+          <div className="p-6">
+            <ul className="space-y-3 text-slate-700">
+              {(activeCrisis.crisis_resources || []).map((resource, idx) => (
+                <li key={idx} className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                  {resource}
+                </li>
+              ))}
+            </ul>
 
-          <p className="mt-4 rounded-lg bg-red-100 p-3 text-sm text-red-800">
-            Si hay riesgo inmediato, llama a emergencias ahora mismo y busca acompañamiento.
-          </p>
+            <p className="mt-5 rounded-2xl bg-slate-950 p-4 text-sm font-semibold text-white">
+              Si hay riesgo inmediato, llama a emergencias ahora mismo y busca acompañamiento.
+            </p>
 
-          <button
-            onClick={() => setActiveCrisis(null)}
-            className="mt-6 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-slate-50"
-          >
-            Volver al chat
-          </button>
-        </div>
+            <button
+              onClick={() => setActiveCrisis(null)}
+              className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              Volver al chat
+            </button>
+          </div>
+        </section>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 md:p-6">
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="flex flex-col rounded-2xl border bg-white shadow-lg lg:col-span-2">
-          <div className="flex items-center justify-between border-b px-4 py-4 md:px-6">
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 md:text-2xl">Asistente emocional</h1>
-              {user && (
-                <p className="mt-1 text-xs text-slate-500 md:text-sm">
-                  {user.name} · {user.email}
+    <main className="min-h-screen px-4 py-5 md:px-6 md:py-8">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,0.9fr)]">
+        <section className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-2xl shadow-blue-100/70 backdrop-blur">
+          <header className="border-b border-slate-100 bg-white/80 px-4 py-4 md:px-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-blue-500">
+                  Sesión de acompañamiento
                 </p>
-              )}
+                <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
+                  Asistente emocional
+                </h1>
+                {user && (
+                  <p className="mt-1 text-xs text-slate-500 md:text-sm">
+                    {user.name} · {user.email}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => router.push("/profile")}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:border-blue-200 hover:bg-blue-50"
+                >
+                  Ver perfil
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="rounded-2xl border border-slate-200 bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-slate-800"
+                >
+                  Cerrar sesión
+                </button>
+              </div>
             </div>
+            </header>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => router.push("/profile")}
-                className="rounded-lg border px-3 py-2 text-sm font-medium hover:bg-slate-50"
-              >
-                Ver perfil
-              </button>
-
-              <button
-                onClick={handleLogout}
-                className="rounded-lg border px-3 py-2 text-sm font-medium hover:bg-slate-50"
-              >
-                Cerrar sesión
-              </button>
+          <nav className="sticky top-0 z-10 border-b border-slate-100 bg-white/90 px-4 py-3 backdrop-blur md:px-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={scrollToChatStart}
+                  className="rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  ↑ Inicio
+                </button>
+                <button
+                  type="button"
+                  onClick={scrollToChatEnd}
+                  className="rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  ↓ Último mensaje
+                </button>
+                <button
+                  type="button"
+                  onClick={focusComposer}
+                  className="rounded-full bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow-sm shadow-blue-200 hover:bg-blue-700"
+                >
+                  Escribir ahora
+                </button>
+              </div>
+              <p className="rounded-full bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700">
+                {chat.length} mensajes · {Object.keys(emotionStats).length || 0} emociones
+              </p>
             </div>
-          </div>
-
-          <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50 px-4 py-4 md:px-6">
+          </nav>
+          <div className="max-h-[58vh] min-h-[420px] flex-1 space-y-5 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 md:px-6">
+            <div ref={chatStartRef} />
             {chat.some((item) => item.crisis_detected) && (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
                 Se detectó una situación de crisis recientemente. Prioriza recursos de ayuda inmediata.
               </div>
             )}
             {chat.length === 0 && (
-              <p className="text-sm text-slate-500">Escribe cómo te sientes para empezar la conversación.</p>
+              <div className="rounded-3xl border border-dashed border-blue-200 bg-blue-50/70 p-6 text-center">
+                <p className="text-base font-bold text-slate-800">Tu conversación empieza aquí</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Escribe cómo te sientes para recibir una respuesta empática y recursos adaptados.
+                </p>
+              </div>
             )}
 
             {chat.map((item, index) => (
-              <div key={index} className="space-y-2">
+              <article key={index} className="space-y-3">
                 <div className="flex justify-end">
-                  <div className="max-w-[75%] rounded-2xl bg-blue-500 px-4 py-3 text-white">
-                    <p>{item.user_message}</p>
+                  <div className="max-w-[82%] rounded-[1.5rem] rounded-br-md bg-gradient-to-br from-blue-600 to-violet-600 px-4 py-3 text-white shadow-lg shadow-blue-100 md:max-w-[72%]">
+                    <p className="leading-6">{item.user_message}</p>
                   </div>
                 </div>
 
                 <div className="flex justify-start">
-                  <div className="max-w-[85%] rounded-2xl border bg-white px-4 py-3">
-                    <p>{item.assistant_message}</p>
-                    <p className="mt-2 text-xs text-gray-500">{formatTimestamp(item.created_at)}</p>
-                    <p className="mt-2 text-sm">
-                      Emoción: {emotionLabels[item.emotion] || item.emotion}
-                    </p>
+                  <div className="max-w-[90%] rounded-[1.5rem] rounded-bl-md border border-slate-100 bg-white px-4 py-3 shadow-md shadow-slate-100 md:max-w-[82%]">
+                    <p className="leading-6 text-slate-700">{item.assistant_message}</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      {formatTimestamp(item.created_at) && (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-500">
+                          {formatTimestamp(item.created_at)}
+                        </span>
+                      )}
+                      <span className="rounded-full bg-blue-50 px-2.5 py-1 font-bold text-blue-700">
+                        {emotionLabels[item.emotion] || item.emotion}
+                      </span>
+                    </div>
 
                     {!item.crisis_detected && item.recommendations && item.recommendations.length > 0 && (
-                      <ul className="mt-2 list-disc pl-5 text-sm text-green-700">
+                      <ul className="mt-3 space-y-2 text-sm text-emerald-700">
                         {item.recommendations.map((rec, i) => (
-                          <li key={i}>{rec}</li>
+                          <li key={i} className="rounded-2xl bg-emerald-50 px-3 py-2">
+                            {rec}
+                          </li>
                         ))}
                       </ul>
                     )}
                   </div>
                 </div>
-              </div>
+              </article>
             ))}
             {loading && (
-              <div className="rounded-xl border bg-white p-3 text-sm text-slate-600">
+              <div className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium text-slate-600 shadow-sm">
                 Analizando tu mensaje y preparando una respuesta personalizada…
               </div>
             )}
             <div ref={chatEndRef} />
           </div>
 
-          <div className="flex gap-2 border-t px-4 py-4">
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="min-h-[70px] flex-1 rounded-lg border p-2"
-              placeholder="Escribe tu mensaje..."
-            />
-            <button
-              onClick={handleSend}
-              disabled={loading}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
-            >
-              {loading ? "Enviando..." : "Enviar"}
-            </button>
+          <div className="border-t border-slate-100 bg-white/90 px-4 py-4 md:px-6">
+            <div className="flex flex-col gap-3 md:flex-row">
+              <textarea
+                ref={messageInputRef}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                className="min-h-[86px] flex-1 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-900 placeholder:text-slate-400"
+                placeholder="Escribe tu mensaje..."
+              />
+              <button
+                onClick={handleSend}
+                disabled={loading}
+                className="rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 px-6 py-3 font-bold text-white shadow-lg shadow-blue-200 hover:from-blue-700 hover:to-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? "Enviando..." : "Enviar"}
+              </button>
+            </div>
+            {error && <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
           </div>
-
+        </section>
           {error && <p className="px-4 pb-4 text-sm font-medium text-red-600">{error}</p>}
-        </div>
-
-        <aside className="space-y-4">
-          <div className="rounded-xl border bg-white p-4">
-            <h3 className="font-semibold">Resumen emocional</h3>
+        <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+          <section className="rounded-[1.75rem] border border-white/70 bg-white/85 p-5 shadow-xl shadow-slate-200/60 backdrop-blur">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-violet-500">
+              Panel activo
+            </p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">Resumen emocional</h3>
             <p className="mt-2 text-sm text-slate-600">
-              {chat.length} mensajes analizados
+              {chat.length} mensajes analizados en esta conversación.
             </p>
 
-            <div className="mt-3 space-y-1 text-sm text-slate-600">
-              {Object.keys(emotionStats).length === 0 && <p>No hay datos todavía</p>}
+            <div className="mt-4 space-y-3 text-sm text-slate-600">
+              {Object.keys(emotionStats).length === 0 && (
+                <p className="rounded-2xl bg-slate-50 px-3 py-3">No hay datos todavía</p>
+              )}
               {Object.entries(emotionStats).map(([emotion, count]) => (
-                <div key={emotion} className="flex justify-between">
-                  <span>{emotionLabels[emotion] || emotion}</span>
-                  <span>{count}</span>
+                <div key={emotion} className="rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-3">
+                  <div className="flex justify-between font-semibold text-slate-800">
+                    <span>{emotionLabels[emotion] || emotion}</span>
+                    <span>{count}</span>
+                  </div>
+                  <div className="mt-2 h-2 rounded-full bg-white">
+                    <div
+                      className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-violet-500"
+                      style={{ width: `${Math.max(12, Math.round((count / Math.max(chat.length, 1)) * 100))}%` }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
 
           <QuickResources />
         </aside>
