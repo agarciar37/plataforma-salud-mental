@@ -1,0 +1,2 @@
+# Keep dependency manifests readable by Vercel/pip.
+backend/requirements.txt text eol=lf
