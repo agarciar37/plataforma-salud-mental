@@ -135,7 +135,7 @@ def detect_emotion(text: str) -> str:
     if not scores:
         return "neutral"
 
-    ordered = ["ansiedad", "estrés", "tristeza", "positivo", "neutral"]
+    ordered = ["ansiedad", "estres", "tristeza", "positivo", "neutral"]
     best = max(ordered, key=lambda label: (scores.get(label, 0), -ordered.index(label)))
 
     if scores.get(best, 0) == 0:
