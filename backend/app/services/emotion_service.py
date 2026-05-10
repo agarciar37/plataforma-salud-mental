@@ -27,7 +27,7 @@ EMOTION_PATTERNS: dict[str, list[str]] = {
         "preocupada",
         "rumiar",
     ],
-    "estrés": [
+    "estres": [
         "estrés",
         "estres",
         "estresado",
