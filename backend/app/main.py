@@ -7,8 +7,12 @@ app = FastAPI(title="TFG Salud Mental API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=[
+        "http://localhost:3000",
+        "https://plataforma-salud-mental.vercel.app",
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -18,4 +22,4 @@ app.include_router(chat_router)
 
 @app.get("/")
 def root():
-    return {"message": "API ACTUALIZADA CORS TEST"}
+    return {"message": "API del TFG funcionando correctamente"}
