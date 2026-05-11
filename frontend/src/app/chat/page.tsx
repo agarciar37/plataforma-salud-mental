@@ -30,15 +30,6 @@ const emotionLabels: Record<string, string> = {
   crisis: "Crisis",
 };
 
-const emotionStyles: Record<string, string> = {
-  ansiedad: "bg-amber-100 text-amber-800 ring-amber-200",
-  estres: "bg-orange-100 text-orange-800 ring-orange-200",
-  tristeza: "bg-blue-100 text-blue-800 ring-blue-200",
-  neutral: "bg-slate-100 text-slate-700 ring-slate-200",
-  positivo: "bg-emerald-100 text-emerald-800 ring-emerald-200",
-  crisis: "bg-red-100 text-red-800 ring-red-200",
-};
-
 export default function ChatPage() {
   const router = useRouter();
 
@@ -51,8 +42,6 @@ export default function ChatPage() {
   const [activeCrisis, setActiveCrisis] = useState<ChatItem | null>(null);
   const chatStartRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
-  const composerRef = useRef<HTMLTextAreaElement | null>(null);
-  const summaryRef = useRef<HTMLElement | null>(null);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -201,9 +190,9 @@ export default function ChatPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-5 md:px-6 md:py-8">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,0.9fr)]">
-        <section className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-2xl shadow-blue-100/70 backdrop-blur">
+    <main className="h-dvh overflow-hidden px-3 py-3 md:px-5 md:py-5">
+      <div className="mx-auto grid h-full min-h-0 max-w-7xl grid-cols-1 gap-4 overflow-y-auto lg:grid-cols-[minmax(0,2fr)_minmax(320px,0.9fr)] lg:overflow-hidden">
+        <section className="flex min-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-2xl shadow-blue-100/70 backdrop-blur md:min-h-[calc(100dvh-2.5rem)] lg:min-h-0">
           <header className="border-b border-slate-100 bg-white/80 px-4 py-4 md:px-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
@@ -267,7 +256,7 @@ export default function ChatPage() {
               </p>
             </div>
           </nav>
-          <div className="max-h-[58vh] min-h-[420px] flex-1 space-y-5 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 md:px-6">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 md:px-6">
             <div ref={chatStartRef} />
             {chat.some((item) => item.crisis_detected) && (
               <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
@@ -332,7 +321,7 @@ export default function ChatPage() {
                 ref={messageInputRef}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className="min-h-[86px] flex-1 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-900 placeholder:text-slate-400"
+                className="min-h-[72px] max-h-32 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-900 placeholder:text-slate-400"
                 placeholder="Escribe tu mensaje..."
               />
               <button
@@ -346,8 +335,7 @@ export default function ChatPage() {
             {error && <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
           </div>
         </section>
-          {error && <p className="px-4 pb-4 text-sm font-medium text-red-600">{error}</p>}
-        <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+          <aside className="min-h-0 space-y-4 pb-3 lg:overflow-y-auto lg:pb-0">
           <section className="rounded-[1.75rem] border border-white/70 bg-white/85 p-5 shadow-xl shadow-slate-200/60 backdrop-blur">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-violet-500">
               Panel activo

@@ -268,8 +268,12 @@ Comprueba que:
 - MongoDB está arrancado.
 - `MONGO_URI` es correcto.
 - El archivo `backend/.env` existe.
+<<<<<<< HEAD
 - La ruta `http://localhost:8000/auth/db-test` responde correctamente.
 
 ### Error con OpenAI
 
 Comprueba que `OPENAI_API_KEY` existe en `backend/.env` y que la clave es válida.
+=======
+- La ruta `http://localhost:8000/auth/db-test` responde correctamente.
+>>>>>>> 93276d2 (Update CORS for production frontend 11)

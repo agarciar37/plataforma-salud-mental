@@ -34,7 +34,7 @@ export default function HomePage() {
             Registrarse
           </Link>
         </div>
-      <div className="mt-10 grid gap-4 text-left md:grid-cols-3">
+        <div className="mt-10 grid gap-4 text-left md:grid-cols-3">
           {["Chat empático", "Resumen emocional", "Recursos rápidos"].map((item) => (
             <div key={item} className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
               <p className="font-semibold text-slate-900">{item}</p>

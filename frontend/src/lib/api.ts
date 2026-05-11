@@ -1,5 +1,9 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+type ErrorDetail = {
+  msg?: string;
+};
+
 async function handleResponse(response: Response) {
   let data;
 
@@ -15,7 +19,7 @@ async function handleResponse(response: Response) {
     if (typeof data?.detail === "string") {
       message = data.detail;
     } else if (Array.isArray(data?.detail)) {
-      message = data.detail.map((err: any) => err.msg).join(", ");
+      message = data.detail.map((err: ErrorDetail) => err.msg).join(", ");
     }
 
     throw new Error(message);
