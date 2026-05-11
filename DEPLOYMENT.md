@@ -24,7 +24,7 @@ Antes de ejecutar el proyecto, instala en el ordenador:
 Clona el repositorio:
 
 ```bash
-git clone <[URL_DEL_REPOSITORIO](https://github.com/agarciar37/plataforma-salud-mental)>
+git clone https://github.com/agarciar37/plataforma-salud-mental
 cd plataforma-salud-mental
 ```
 
