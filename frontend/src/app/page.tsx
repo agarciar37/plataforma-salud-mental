@@ -35,12 +35,26 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="mt-10 grid gap-4 text-left md:grid-cols-3">
-          {["Chat empático", "Resumen emocional", "Recursos rápidos"].map((item) => (
-            <div key={item} className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-              <p className="font-semibold text-slate-900">{item}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Herramientas visuales y sencillas para ayudarte a entender mejor cómo te sientes.
-              </p>
+          {[
+            {
+              title: "Chat empático",
+              description:
+                "Conversa con un asistente que escucha tu situación y responde con cuidado.",
+            },
+            {
+              title: "Resumen emocional",
+              description:
+                "Observa tus estados de ánimo y detecta patrones para entender tu evolución.",
+            },
+            {
+              title: "Recursos rápidos",
+              description:
+                "Accede a ejercicios breves de calma, respiración y autocuidado cuando lo necesites.",
+            },
+          ].map((item) => (
+            <div key={item.title} className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+              <p className="font-semibold text-slate-900">{item.title}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
             </div>
           ))}
         </div>
