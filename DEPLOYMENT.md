@@ -28,8 +28,6 @@ git clone https://github.com/agarciar37/plataforma-salud-mental
 cd plataforma-salud-mental
 ```
 
-Si se entrega como archivo ZIP, descomprímelo y abre una terminal dentro de la carpeta `plataforma-salud-mental`.
-
 ## 2. Configurar el backend
 
 Entra en la carpeta del backend:
@@ -67,10 +65,10 @@ pip install -r requirements.txt
 Crea un archivo llamado `.env` dentro de la carpeta `backend/` con este contenido:
 
 ```env
-MONGO_URI=mongodb://localhost:27017
-DB_NAME=plataforma_salud_mental
-JWT_SECRET=una_clave_secreta_larga_para_pruebas
-OPENAI_API_KEY=sk-tu_clave_de_openai
+MONGO_URI
+DB_NAME
+JWT_SECRET
+OPENAI_API_KEY
 ```
 
 ### Configuración de MongoDB
@@ -78,7 +76,7 @@ OPENAI_API_KEY=sk-tu_clave_de_openai
 Si usas MongoDB local, asegúrate de que el servicio está iniciado y deja:
 
 ```env
-MONGO_URI=mongodb://localhost:27017
+MONGO_URI
 ```
 
 Si usas MongoDB Atlas, sustituye `MONGO_URI` por la cadena de conexión de Atlas, por ejemplo:
@@ -94,8 +92,6 @@ Para probar respuestas reales de IA, configura una API key válida:
 ```env
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
 ```
-
-Si no quieres usar crédito de OpenAI durante una prueba rápida, puedes poner un valor de prueba. La aplicación arrancará, aunque las respuestas generadas por IA no funcionarán correctamente.
 
 ## 3. Arrancar el backend
 
@@ -277,7 +273,3 @@ Comprueba que:
 ### Error con OpenAI
 
 Comprueba que `OPENAI_API_KEY` existe en `backend/.env` y que la clave es válida.
-
-### El puerto ya está ocupado
-
-Si `8000` o `3000` están ocupados, cierra el proceso que los usa o cambia el puerto. Si cambias el puerto del backend, actualiza también `NEXT_PUBLIC_API_URL` en `frontend/.env.local`.
