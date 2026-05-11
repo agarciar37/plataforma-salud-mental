@@ -11,7 +11,6 @@ from app.services.privacy_service import redact_pii
 from app.services.rate_limit_service import is_rate_limited
 from app.services.recommendation_service import get_recommendations
 from app.services.safety_service import (
-    append_non_diagnostic_disclaimer,
     crisis_support_message,
     get_crisis_resources,
     is_high_risk_message,
@@ -86,6 +85,7 @@ Debes responder de forma:
 Normas:
 - No diagnostiques trastornos ni enfermedades.
 - No sustituyas ayuda profesional.
+- No añadas una nota o disclaimer fijo al final de cada respuesta.
 - No repitas siempre la misma estructura.
 - Adapta la respuesta al mensaje actual y al contexto previo.
 - Usa el perfil emocional para ajustar tono y sugerencias sin etiquetar ni juzgar al usuario.
@@ -139,7 +139,7 @@ async def send_message(request: ChatRequest, current_user=Depends(get_current_us
     if is_high_risk_message(request.message):
         emotion = "crisis"
         recommendations = []
-        ai_response = append_non_diagnostic_disclaimer(crisis_support_message("ES"))
+        ai_response = crisis_support_message("ES")
         crisis_resources = get_crisis_resources("ES")
     else:
         emotion = detect_emotion(request.message)
@@ -154,9 +154,8 @@ async def send_message(request: ChatRequest, current_user=Depends(get_current_us
                 redacted_context,
                 profile_memory,
             )
-            ai_response = append_non_diagnostic_disclaimer(ai_response)
         except Exception:
-            ai_response = append_non_diagnostic_disclaimer(
+            ai_response = (
                 "Estoy aquí para escucharte. Gracias por compartir cómo te sientes. "
                 "Si quieres, puedes contarme un poco más para intentar orientarte mejor."
             )

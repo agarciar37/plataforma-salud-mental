@@ -9,11 +9,6 @@ HIGH_RISK_KEYWORDS = [
     "me quiero morir",
 ]
 
-NON_DIAGNOSTIC_DISCLAIMER = (
-    "\n\nNota importante: soy un asistente de apoyo emocional, no realizo diagnósticos "
-    "ni sustituyo a un profesional de salud mental."
-)
-
 CRISIS_RESOURCES_BY_COUNTRY = {
     "ES": {
         "emergency": "Emergencias: 112",
@@ -56,9 +51,3 @@ def crisis_support_message(country_code: str = "ES") -> str:
         f"3) {hotline}.\n"
         f"4) {active_help}"
     )
-
-
-def append_non_diagnostic_disclaimer(message: str) -> str:
-    if NON_DIAGNOSTIC_DISCLAIMER.strip() in message:
-        return message
-    return f"{message}{NON_DIAGNOSTIC_DISCLAIMER}"
