@@ -1,9 +1,5 @@
 # Plataforma de Salud Mental
 
-Aplicación web de apoyo emocional desarrollada como proyecto TFG. El sistema permite registrar usuarios, iniciar sesión y conversar con un asistente de apoyo emocional basado en IA. Además, guarda el historial, detecta emociones, ofrece recomendaciones y muestra recursos de ayuda en caso de detectar mensajes de crisis.
-
-> **Aviso importante:** esta aplicación no sustituye a profesionales sanitarios ni realiza diagnósticos. Es una herramienta educativa/de apoyo emocional para el proyecto.
-
 ## Estructura del proyecto
 
 ```text
