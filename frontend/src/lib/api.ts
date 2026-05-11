@@ -10,7 +10,15 @@ async function handleResponse(response: Response) {
   }
 
   if (!response.ok) {
-    throw new Error(data?.detail || "Error en la petición");
+    let message = "Error en la petición";
+
+    if (typeof data?.detail === "string") {
+      message = data.detail;
+    } else if (Array.isArray(data?.detail)) {
+      message = data.detail.map((err: any) => err.msg).join(", ");
+    }
+
+    throw new Error(message);
   }
 
   return data;
