@@ -18,4 +18,4 @@ app.include_router(chat_router)
 
 @app.get("/")
 def root():
-    return {"message": "API del TFG funcionando correctamente"}
+    return {"message": "API ACTUALIZADA CORS TEST"}
