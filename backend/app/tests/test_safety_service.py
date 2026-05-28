@@ -1,5 +1,7 @@
 import pytest
+
 from app.services.safety_service import classify_safety
+
 
 @pytest.mark.parametrize(
     "message,level,rtype,ai_allowed",

@@ -5,16 +5,13 @@ from openai import OpenAI
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.db import messages_collection
 from app.dependencies import get_current_user
-from app.schemas.chat import ChatRequest
+from app.schemas.chat import ChatRequest, ChatResponse 
 from app.services.emotion_service import detect_emotion
 from app.services.privacy_service import redact_pii
 from app.services.rate_limit_service import is_rate_limited
 from app.services.recommendation_service import get_recommendations
-from app.services.safety_service import (
-    crisis_support_message,
-    get_crisis_resources,
-    is_high_risk_message,
-)
+from app.services.safety_responses import get_safety_response
+from app.services.safety_service import classify_safety
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -120,7 +117,7 @@ Genera una respuesta breve o media, coherente con el contexto, empática y perso
     return response.choices[0].message.content or "Estoy aquí para escucharte."
 
 
-@router.post("/message")
+@router.post("/message", response_model=ChatResponse)
 async def send_message(request: ChatRequest, current_user=Depends(get_current_user)):
     user_id = current_user["sub"]
     if is_rate_limited(user_id):
@@ -136,15 +133,13 @@ async def send_message(request: ChatRequest, current_user=Depends(get_current_us
     detected_types = sorted(set(message_detected_types + context_detected_types))
     redaction_applied = message_was_redacted or context_was_redacted
 
-    if is_high_risk_message(request.message):
-        emotion = "crisis"
-        recommendations = []
-        ai_response = crisis_support_message("ES")
-        crisis_resources = get_crisis_resources("ES")
-    else:
+    safety_result = classify_safety(request.message)
+    crisis_resources = ["112", "024"] if safety_result.risk_level in {"high", "crisis"} else []
+    ai_called = False
+
+    if safety_result.ai_allowed:
         emotion = detect_emotion(request.message)
         recommendations = get_recommendations(emotion)
-        crisis_resources = []
         profile_memory = build_profile_memory(user_id)
 
         try:
@@ -154,11 +149,17 @@ async def send_message(request: ChatRequest, current_user=Depends(get_current_us
                 redacted_context,
                 profile_memory,
             )
+            ai_called = True
         except Exception:
             ai_response = (
                 "Estoy aquí para escucharte. Gracias por compartir cómo te sientes. "
                 "Si quieres, puedes contarme un poco más para intentar orientarte mejor."
             )
+    else:
+        emotion = "crisis" if safety_result.risk_level == "crisis" else "alto_riesgo"
+        recommendations = []
+        ai_response = get_safety_response(safety_result.risk_type)
+
 
     created_at = datetime.now(timezone.utc)
 
@@ -170,6 +171,12 @@ async def send_message(request: ChatRequest, current_user=Depends(get_current_us
         "recommendations": recommendations,
         "redaction_applied": redaction_applied,
         "detected_sensitive_types": detected_types,
+        "risk_level": safety_result.risk_level,
+        "risk_type": safety_result.risk_type,
+        "safety_triggered": safety_result.safety_triggered,
+        "ai_called": ai_called,
+        "safety_reason": safety_result.reason,
+        "matched_patterns": safety_result.matched_patterns,
         "created_at": created_at,
     }
 
@@ -180,11 +187,15 @@ async def send_message(request: ChatRequest, current_user=Depends(get_current_us
         "assistant_message": ai_response,
         "emotion": emotion,
         "recommendations": recommendations,
-        "crisis_detected": emotion == "crisis",
+        "crisis_detected": safety_result.risk_level == "crisis",
         "crisis_resources": crisis_resources,
         "redaction_applied": redaction_applied,
         "detected_sensitive_types": detected_types,
         "created_at": created_at.isoformat(),
+        "risk_level": safety_result.risk_level,
+        "risk_type": safety_result.risk_type,
+        "safety_triggered": safety_result.safety_triggered,
+        "ai_called": ai_called,
     }
 
 
