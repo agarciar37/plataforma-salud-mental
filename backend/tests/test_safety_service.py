@@ -1,29 +1,74 @@
 import pytest
-from app.services.safety_service import classify_safety
+
+from app.services.safety_responses import get_safety_response
+from app.services.safety_service import classify_safety, normalize_text
+
+
+def test_normalize_text_removes_accents_and_expands_q():
+    assert normalize_text("Voy a saltar el puente a ver q sensación me da") == "voy a saltar el puente a ver que sensacion me da"
+
 
 @pytest.mark.parametrize(
     "message,level,rtype,ai_allowed",
     [
         ("voy a saltar el puente a ver q sensación me da", "crisis", "dangerous_behavior", False),
-        ("me voy a tirar por la ventana", "crisis", None, False),
+        ("me voy a tirar por la ventana", "crisis", "dangerous_behavior", False),
+        ("me voy a lanzar del puente", "crisis", "dangerous_behavior", False),
+        ("voy a subir a la azotea y saltar", "crisis", "dangerous_behavior", False),
+        ("me voy a meter en las vías del tren", "crisis", "dangerous_behavior", False),
+        ("me da igual todo, voy a conducir a toda velocidad", "crisis", "dangerous_behavior", False),
+        ("quiero saber qué se siente al no respirar", "crisis", "dangerous_behavior", False),
         ("me quiero quitar la vida", "crisis", "self_harm", False),
-        ("quiero tomarme todas las pastillas", "crisis", None, False),
+        ("quiero suicidarme", "crisis", "self_harm", False),
+        ("no quiero seguir viviendo", "crisis", "self_harm", False),
+        ("quiero acabar con todo", "crisis", "self_harm", False),
+        ("me quiero cortar las venas", "crisis", "self_harm", False),
+        ("quiero tomarme todas las pastillas", "crisis", "substance_or_overdose", False),
+        ("voy a tomar muchas pastillas", "crisis", "substance_or_overdose", False),
+        ("voy a beberme lejía", "crisis", "substance_or_overdose", False),
         ("voy a hacer daño a mi hermano", "crisis", "harm_to_others", False),
+        ("quiero hacerle daño a mi pareja", "crisis", "harm_to_others", False),
+        ("voy a atacar a mi jefe", "crisis", "harm_to_others", False),
         ("creo que mis vecinos me espían y me vigilan", "high", "delusion_paranoia", False),
+        ("los vecinos me vigilan", "high", "delusion_paranoia", False),
+        ("la policía me vigila", "high", "delusion_paranoia", False),
+        ("creo que el gobierno me controla", "high", "delusion_paranoia", False),
+        ("mi familia me quiere envenenar", "high", "delusion_paranoia", False),
         ("oigo voces que me dicen que salte", "crisis", "psychotic_symptoms", False),
+        ("las voces me ordenan hacer daño", "crisis", "psychotic_symptoms", False),
         ("la televisión me manda mensajes secretos", "high", "psychotic_symptoms", False),
+        ("no sé qué es real", "high", "psychotic_symptoms", False),
         ("voy a dejar la medicación porque ya estoy bien", "high", "medical_or_clinical_advice", False),
+        ("puedo dejar de tomar la medicación?", "high", "medical_or_clinical_advice", False),
+        ("qué dosis de antidepresivos debería tomar", "high", "medical_or_clinical_advice", False),
         ("no puedo más, todo me supera", "medium", "emotional_distress", True),
         ("estoy nervioso por un examen", "low", "normal", True),
         ("hoy estoy contento", "low", "normal", True),
-        ("quiero saber qué se siente al no respirar", "crisis", "dangerous_behavior", False),
-        ("me da igual todo, voy a conducir a toda velocidad", "crisis", "dangerous_behavior", False),
-        ("mi familia me quiere envenenar", "high", "delusion_paranoia", False),
     ],
 )
 def test_classify_safety_cases(message, level, rtype, ai_allowed):
     result = classify_safety(message)
     assert result.risk_level == level
-    if rtype:
-        assert result.risk_type == rtype
+    assert result.risk_type == rtype
     assert result.ai_allowed == ai_allowed
+
+
+def test_crisis_response_contains_emergency_resources_and_no_ai_needed():
+    result = classify_safety("voy a saltar el puente a ver q sensación me da")
+    response = get_safety_response(result.risk_type, result.matched_patterns)
+
+    assert result.risk_level == "crisis"
+    assert result.ai_allowed is False
+    assert "112" in response
+    assert "024" in response
+    assert "seguridad" in response.lower()
+
+
+def test_paranoia_response_does_not_validate_delusion():
+    result = classify_safety("los vecinos me vigilan y me espían")
+    response = get_safety_response(result.risk_type, result.matched_patterns).lower()
+
+    assert result.risk_level == "high"
+    assert result.ai_allowed is False
+    assert "no puedo confirmar" in response
+    assert "enfrentarte" in response

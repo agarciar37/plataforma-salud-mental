@@ -1,11 +1,13 @@
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 import os
-from openai import OpenAI
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from openai import OpenAI
+
 from app.db import messages_collection
 from app.dependencies import get_current_user
-from app.schemas.chat import ChatRequest, ChatResponse 
+from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.emotion_service import detect_emotion
 from app.services.privacy_service import redact_pii
 from app.services.rate_limit_service import is_rate_limited
@@ -18,6 +20,9 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
+HIGH_RISK_LEVELS = {"high", "crisis"}
+
+
 def normalize_datetime(dt: datetime | None) -> datetime | None:
     if not dt:
         return None
@@ -27,14 +32,26 @@ def normalize_datetime(dt: datetime | None) -> datetime | None:
 
 
 def get_recent_context(user_id: str, limit: int = 8) -> str:
+    """
+    Recupera contexto conversacional para mejorar continuidad.
+
+    Por seguridad, los mensajes previos clasificados como high/crisis no se envían literalmente
+    al modelo generativo. Esto evita que la IA use como contexto ideas delirantes, autolesivas
+    o violentas y reduce el riesgo de reforzarlas.
+    """
     history = list(
         messages_collection.find({"user_id": user_id}).sort("created_at", -1).limit(limit)
     )
-
     history.reverse()
 
-    context_lines = []
+    context_lines: list[str] = []
     for item in history:
+        risk_level = item.get("risk_level", "low")
+        if risk_level in HIGH_RISK_LEVELS:
+            context_lines.append("Usuario: [Mensaje anterior omitido por seguridad: evento de alto riesgo]")
+            context_lines.append("Asistente: [Respuesta de seguridad emitida]")
+            continue
+
         user_msg = item.get("user_message", "")
         assistant_msg = item.get("assistant_message", "")
         context_lines.append(f"Usuario: {user_msg}")
@@ -68,7 +85,13 @@ def build_profile_memory(user_id: str) -> str:
     )
 
 
-def generate_ai_response(user_message: str, emotion: str, context: str, profile_memory: str) -> str:
+def generate_ai_response(
+    user_message: str,
+    emotion: str,
+    context: str,
+    profile_memory: str,
+    safety_mode: bool = False,
+) -> str:
     system_prompt = """
 Eres un asistente de apoyo emocional basado en inteligencia artificial.
 
@@ -79,14 +102,26 @@ Debes responder de forma:
 - calmada
 - no repetitiva
 
-Normas:
+Normas obligatorias:
 - No diagnostiques trastornos ni enfermedades.
 - No sustituyas ayuda profesional.
+- No indiques medicación ni cambios de tratamiento.
 - No añadas una nota o disclaimer fijo al final de cada respuesta.
 - No repitas siempre la misma estructura.
 - Adapta la respuesta al mensaje actual y al contexto previo.
 - Usa el perfil emocional para ajustar tono y sugerencias sin etiquetar ni juzgar al usuario.
 - Sé útil y humano, pero sin sonar excesivamente teatral.
+"""
+
+    if safety_mode:
+        system_prompt += """
+
+Modo de seguridad reforzado:
+- El usuario muestra malestar emocional relevante, aunque no se ha detectado crisis inmediata.
+- No minimices el malestar ni respondas con optimismo vacío.
+- Recomienda apoyo de una persona de confianza o profesional si el malestar aumenta.
+- Si el usuario menciona autolesión, suicidio, daño a terceros, delirios, voces o peligro físico, indica buscar ayuda urgente y emergencias.
+- No hagas preguntas que puedan incentivar detalles sobre métodos de daño.
 """
 
     user_prompt = f"""
@@ -110,7 +145,7 @@ Genera una respuesta breve o media, coherente con el contexto, empática y perso
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        temperature=0.8,
+        temperature=0.6 if safety_mode else 0.8,
         max_tokens=300,
     )
 
@@ -120,24 +155,36 @@ Genera una respuesta breve o media, coherente con el contexto, empática y perso
 @router.post("/message", response_model=ChatResponse)
 async def send_message(request: ChatRequest, current_user=Depends(get_current_user)):
     user_id = current_user["sub"]
+
     if is_rate_limited(user_id):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Has enviado demasiados mensajes en poco tiempo. Espera un minuto e inténtalo de nuevo.",
         )
 
-    context = get_recent_context(user_id)
-
-    redacted_message, message_was_redacted, message_detected_types = redact_pii(request.message)
-    redacted_context, context_was_redacted, context_detected_types = redact_pii(context)
-    detected_types = sorted(set(message_detected_types + context_detected_types))
-    redaction_applied = message_was_redacted or context_was_redacted
-
+    # 1) La seguridad se evalúa antes de llamar al modelo generativo.
     safety_result = classify_safety(request.message)
-    crisis_resources = ["112", "024"] if safety_result.risk_level in {"high", "crisis"} else []
+    crisis_resources = ["112", "024"] if safety_result.risk_level in HIGH_RISK_LEVELS else []
     ai_called = False
 
-    if safety_result.ai_allowed:
+    # 2) Si el mensaje es high/crisis, NO se llama a OpenAI.
+    if not safety_result.ai_allowed:
+        emotion = "crisis" if safety_result.risk_level == "crisis" else "alto_riesgo"
+        recommendations: list[str] = []
+        ai_response = get_safety_response(
+            safety_result.risk_type,
+            safety_result.matched_patterns,
+        )
+        redaction_applied = False
+        detected_types: list[str] = []
+
+    else:
+        context = get_recent_context(user_id)
+        redacted_message, message_was_redacted, message_detected_types = redact_pii(request.message)
+        redacted_context, context_was_redacted, context_detected_types = redact_pii(context)
+        detected_types = sorted(set(message_detected_types + context_detected_types))
+        redaction_applied = message_was_redacted or context_was_redacted
+
         emotion = detect_emotion(request.message)
         recommendations = get_recommendations(emotion)
         profile_memory = build_profile_memory(user_id)
@@ -148,6 +195,7 @@ async def send_message(request: ChatRequest, current_user=Depends(get_current_us
                 emotion,
                 redacted_context,
                 profile_memory,
+                safety_mode=safety_result.risk_level == "medium",
             )
             ai_called = True
         except Exception:
@@ -155,11 +203,6 @@ async def send_message(request: ChatRequest, current_user=Depends(get_current_us
                 "Estoy aquí para escucharte. Gracias por compartir cómo te sientes. "
                 "Si quieres, puedes contarme un poco más para intentar orientarte mejor."
             )
-    else:
-        emotion = "crisis" if safety_result.risk_level == "crisis" else "alto_riesgo"
-        recommendations = []
-        ai_response = get_safety_response(safety_result.risk_type)
-
 
     created_at = datetime.now(timezone.utc)
 
@@ -230,6 +273,7 @@ def get_user_summary(current_user=Depends(get_current_user)):
         "neutral": 0,
         "positivo": 0,
         "crisis": 0,
+        "alto_riesgo": 0,
     }
 
     recent_messages = []
@@ -257,6 +301,10 @@ def get_user_summary(current_user=Depends(get_current_user)):
                 "user_message": msg.get("user_message", ""),
                 "assistant_message": msg.get("assistant_message", ""),
                 "emotion": emotion,
+                "risk_level": msg.get("risk_level", "low"),
+                "risk_type": msg.get("risk_type", "normal"),
+                "safety_triggered": msg.get("safety_triggered", False),
+                "ai_called": msg.get("ai_called", True),
                 "created_at": created.isoformat() if created else None,
             }
         )

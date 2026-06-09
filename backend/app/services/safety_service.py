@@ -19,6 +19,7 @@ RiskType = Literal[
     "unknown_high_risk",
 ]
 
+
 @dataclass
 class SafetyResult:
     risk_level: RiskLevel
@@ -33,69 +34,148 @@ CRISIS_RESOURCES_BY_COUNTRY = {"ES": ["112", "024"]}
 
 
 def normalize_text(message: str) -> str:
-    txt = message.lower().strip()
+    """Normaliza texto libre para reducir fallos por tildes, mayúsculas o abreviaturas."""
+    txt = (message or "").lower().strip()
     txt = unicodedata.normalize("NFD", txt)
     txt = "".join(ch for ch in txt if unicodedata.category(ch) != "Mn")
+    txt = txt.replace("¿", " ").replace("?", " ").replace("¡", " ").replace("!", " ")
     txt = re.sub(r"\bq\b", "que", txt)
-    txt = re.sub(r"\s+", " ", txt)
+    txt = re.sub(r"\bk\b", "que", txt)
+    txt = re.sub(r"[^a-z0-9ñ\s]", " ", txt)
+    txt = re.sub(r"\s+", " ", txt).strip()
     return txt
 
 
-def _contains_any(text: str, patterns: list[str]) -> list[str]:
-    return [p for p in patterns if p in text]
+def _match_regex(text: str, patterns: list[str]) -> list[str]:
+    return [pattern for pattern in patterns if re.search(pattern, text)]
+
+
+def _result(
+    risk_level: RiskLevel,
+    risk_type: RiskType,
+    reason: str,
+    matched_patterns: list[str],
+    ai_allowed: bool | None = None,
+) -> SafetyResult:
+    if ai_allowed is None:
+        ai_allowed = risk_level in {"low", "medium"}
+    return SafetyResult(
+        risk_level=risk_level,
+        risk_type=risk_type,
+        safety_triggered=risk_level != "low",
+        ai_allowed=ai_allowed,
+        reason=reason,
+        matched_patterns=matched_patterns,
+    )
 
 
 def classify_safety(message: str) -> SafetyResult:
+    """
+    Clasificación heurística y conservadora de seguridad.
+
+    Principio de diseño: ante duda razonable en un contexto de salud mental, se eleva el nivel
+    de riesgo para evitar que el modelo generativo responda libremente a situaciones críticas.
+    Esta función no realiza diagnóstico clínico; solo activa medidas de seguridad del sistema.
+    """
     text = normalize_text(message)
 
-    dangerous_actions = ["saltar", "tirar", "tirarme", "lanzarme", "meterme", "conducir", "beber lejia", "no respirar", "al no respirar", "tomarme", "ingerir", "cortarme", "ahorcarme", "estrellarme"]
-    dangerous_means = ["puente", "balcon", "ventana", "azotea", "vias del tren", "tren", "coche", "carretera", "pastillas", "lejia", "veneno", "gas", "precipicio", "rio", "mar"]
-    ambiguous_danger = ["a ver que pasa", "a ver que se siente", "que se siente", "a ver que sensacion", "me da igual", "no me importa", "quiero sentir algo", "ya vere", "total da igual", "no pasa nada"]
+    if not text:
+        return _result("low", "normal", "Mensaje vacío o sin contenido analizable.", [], True)
 
-    self_harm = ["me quiero suicidar", "quitarme la vida", "quiero quitar la vida", "me quiero quitar la vida", "quiero morirme", "me quiero morir", "no quiero seguir viviendo", "hacerme dano", "quiero hacerme dano", "no merece la pena vivir", "desaparecer para siempre"]
-    harm_others = ["voy a matar", "quiero matar", "voy a hacer dano a", "quiero hacerle dano", "voy a apunalar", "voy a disparar", "voy a atacar"]
-    paranoia = ["me persiguen", "me espian", "me estan vigilando", "camaras ocultas", "me controlan la mente", "me leen la mente", "me quieren envenenar", "mi familia me quiere envenenar", "todos conspiran contra mi", "me han puesto un chip", "television me habla"]
-    psychotic = ["oigo voces", "escucho voces", "las voces me dicen", "veo cosas que otros no ven", "recibo mensajes secretos", "no se que es real", "perdiendo la realidad", "television me manda mensajes"]
-    psychotic_commands = ["las voces me dicen que me mate", "las voces me dicen que haga dano", "las voces me dicen que salte", "voces que me dicen que salte"]
-    medical = ["dejar la medicacion", "dejar las pastillas", "antidepresivos", "que dosis", "diagnosticame", "medicamento tomar", "tengo esquizofrenia", "tengo depresion clinica"]
-    distress = ["no puedo mas", "estoy desesperado", "todo me supera", "no aguanto mas", "me siento atrapado", "me siento roto", "no veo salida"]
+    psychotic_crisis_patterns = [
+        r"\b(voces|voz)\b.*\b(me dicen|me ordenan|me piden|quieren que)\b.*\b(mate|matar|matarme|suicid|salte|saltar|tirarme|lanzarme|hacer dano|danar|apuñal|apunala|dispar)",
+        r"\b(oigo|escucho)\b.*\b(voces|voz)\b.*\b(mate|matar|matarme|suicid|salte|saltar|tirarme|lanzarme|hacer dano|danar)",
+    ]
+    matches = _match_regex(text, psychotic_crisis_patterns)
+    if matches:
+        return _result("crisis", "psychotic_symptoms", "Síntomas psicóticos con posible orden de daño.", matches, False)
 
-    cmd = _contains_any(text, psychotic_commands)
-    if cmd:
-        return SafetyResult("crisis", "psychotic_symptoms", True, False, "Comandos de daño asociados a voces.", cmd)
+    self_harm_patterns = [
+        r"\b(me quiero|quiero|voy a|me voy a|pienso|necesito|he decidido)\b.*\b(suicidar|suicidarme|matarme|morirme|morir|quitarme la vida|quitar la vida|acabar con mi vida|acabar con todo)",
+        r"\b(no quiero|no puedo)\b.*\b(seguir viviendo|vivir mas|continuar viviendo)",
+        r"\b(no merece la pena|no vale la pena)\b.*\b(vivir|seguir)",
+        r"\b(seria mejor|estaria mejor)\b.*\b(muerto|muerta|desaparecer|no estar)",
+        r"\b(me quiero|quiero|voy a|me voy a|pienso)\b.*\b(hacerme dano|danarme|autolesionarme|cortar|cortar las venas|cortarme|cortarme las venas|abrirme las venas|ahorcarme|colgarme|dispararme|quemarme)",
+        r"\b(desaparecer para siempre|acabar con todo|terminar con todo)\b",
+        r"\b(me da igual todo|ya no me importa nada)\b.*\b(vivir|morir|vida)",
+    ]
+    matches = _match_regex(text, self_harm_patterns)
+    if matches:
+        return _result("crisis", "self_harm", "Ideación suicida o autolesiva explícita o altamente probable.", matches, False)
 
-    sh = _contains_any(text, self_harm)
-    if sh:
-        return SafetyResult("crisis", "self_harm", True, False, "Ideación suicida/autolesiva explícita.", sh)
+    overdose_patterns = [
+        r"\b(tomar|tomarme|ingerir|tragar|tragarme|beber|beberme)\b.*\b(todas|muchas|un monton|demasiadas|varias|caja|bote)\b.*\b(pastillas|medicacion|medicamentos|ansioliticos|antidepresivos|ibuprofeno|paracetamol)",
+        r"\b(tomar|tomarme|ingerir|tragar|tragarme|beber|beberme)\b.*\b(pastillas|medicacion|medicamentos|ansioliticos|antidepresivos|ibuprofeno|paracetamol)\b.*\b(todas|muchas|un monton|demasiadas|varias|caja|bote)",
+        r"\b(beber|beberme|tomar|tomarme|ingerir)\b.*\b(lejia|veneno|raticida|amoniaco|gasolina|alcohol de quemar)",
+        r"\b(sobredosis|overdose)\b",
+    ]
+    matches = _match_regex(text, overdose_patterns)
+    if matches:
+        return _result("crisis", "substance_or_overdose", "Riesgo de intoxicación, sobredosis o ingesta peligrosa.", matches, False)
 
-    ho = _contains_any(text, harm_others)
-    if ho:
-        return SafetyResult("crisis", "harm_to_others", True, False, "Posible daño a terceros.", ho)
+    dangerous_behavior_patterns = [
+        r"\b(saltar|tirar|tirarme|lanzar|lanzarme|arrojar|arrojarme|precipitar|precipitarme|brincar)\b.*\b(puente|ventana|balcon|azotea|tejado|precipicio|acantilado|terraza)",
+        r"\b(puente|ventana|balcon|azotea|tejado|precipicio|acantilado|terraza)\b.*\b(saltar|tirar|tirarme|lanzar|lanzarme|arrojar|arrojarme|precipitar|precipitarme|brincar)",
+        r"\b(saltar|tirar|tirarme|lanzar|lanzarme|arrojar|arrojarme|precipitar|precipitarme|brincar)\b.*\b(a ver que pasa|a ver que se siente|a ver que sensacion|por probar|quiero sentir algo|me da igual|no me importa)",
+        r"\b(meter|meterme|tumbar|tumbarme|poner|ponerme|entrar)\b.*\b(vias del tren|vias|tren|metro)",
+        r"\b(cruzar|meterme)\b.*\b(carretera|autopista)\b.*\b(sin mirar|a ver que pasa)",
+        r"\b(conducir|manejar)\b.*\b(muy rapido|a toda velocidad|sin frenar|contra un muro|contra un arbol|a ver que pasa)",
+        r"\b(no respirar|dejar de respirar|aguantar la respiracion)\b.*\b(a ver|que se siente|sensacion|hasta desmayarme|por probar)",
+        r"\b(quiero saber|voy a probar|por probar)\b.*\b(que se siente|sensacion)\b.*\b(no respirar|ahogarse|asfixiarse|saltar|caer)",
+        r"\b(me da igual|no me importa|total da igual)\b.*\b(saltar|tirarme|lanzarme|conducir|pastillas|lejia|cortarme)",
+    ]
+    matches = _match_regex(text, dangerous_behavior_patterns)
+    if matches:
+        return _result("crisis", "dangerous_behavior", "Conducta física peligrosa o ambigua con riesgo inmediato.", matches, False)
 
-    da = _contains_any(text, dangerous_actions)
-    dm = _contains_any(text, dangerous_means)
-    ad = _contains_any(text, ambiguous_danger)
-    if (da and dm) or (da and ad):
-        m = da + dm + ad
-        rtype: RiskType = "substance_or_overdose" if any(x in text for x in ["pastillas", "lejia", "ingerir", "tomarme"]) else "dangerous_behavior"
-        return SafetyResult("crisis", rtype, True, False, "Combinación de conducta peligrosa con medio/contexto de riesgo.", m)
-    if dm and ad:
-        return SafetyResult("high", "dangerous_behavior", True, False, "Contexto ambiguo con medio peligroso.", dm + ad)
+    harm_to_others_patterns = [
+        r"\b(quiero|voy a|me voy a|pienso|he decidido|tengo ganas de)\b.*\b(matar|asesinar|hacer dano|hacerle dano|danar|atacar|apuñalar|apunalar|disparar|pegar|dar una paliza|quemar)\b",
+        r"\b(matar|asesinar|apuñalar|apunalar|disparar|atacar)\b.*\b(a mi|a alguien|a mi hermano|a mi hermana|a mi madre|a mi padre|a mi pareja|a mi familia|a mis vecinos|a mi jefe|a un companero|a una persona)",
+        r"\b(vengarme|venganza)\b.*\b(hacer dano|danar|matar|atacar|pegar)",
+    ]
+    matches = _match_regex(text, harm_to_others_patterns)
+    if matches:
+        return _result("crisis", "harm_to_others", "Posible intención de dañar a terceros.", matches, False)
 
-    dp = _contains_any(text, paranoia)
-    if dp:
-        return SafetyResult("high", "delusion_paranoia", True, False, "Indicadores de paranoia/delirio persecutorio.", dp)
+    delusion_paranoia_patterns = [
+        r"\b(vecinos|policia|gobierno|familia|compañeros|companeros|jefe|empresa|todos|alguien)\b.*\b(me vigilan|me vigila|me espian|me espia|me controlan|me controla|me persiguen|me persigue|conspiran|me quieren envenenar|me quiere envenenar|quieren envenenarme|quiere envenenarme|me quieren hacer dano|me quiere hacer dano)",
+        r"\b(me vigilan|me vigila|me espian|me espia|me estan vigilando|me estan espiando|me persiguen|me siguen)\b",
+        r"\b(camaras ocultas|microfonos ocultos|me han puesto un chip|tengo un chip|chip en la cabeza)\b",
+        r"\b(me controlan la mente|me leen la mente|leen mis pensamientos|control mental)\b",
+        r"\b(television|radio|internet|movil|telefono)\b.*\b(me habla|me envia señales|me envia senales)",
+        r"\b(me quieren envenenar|me quiere envenenar|quieren envenenarme|quiere envenenarme|mi comida esta envenenada)\b",
+    ]
+    matches = _match_regex(text, delusion_paranoia_patterns)
+    if matches:
+        return _result("high", "delusion_paranoia", "Indicadores de paranoia, delirio persecutorio o creencias potencialmente peligrosas.", matches, False)
 
-    ps = _contains_any(text, psychotic)
-    if ps:
-        return SafetyResult("high", "psychotic_symptoms", True, False, "Indicadores de síntomas psicóticos.", ps)
+    psychotic_patterns = [
+        r"\b(oigo|escucho)\b.*\b(voces|voz)\b",
+        r"\b(las voces|una voz)\b.*\b(me dicen|me habla|me ordena|me manda)",
+        r"\b(veo cosas|veo sombras|veo personas)\b.*\b(que otros no ven|que nadie ve)",
+        r"\b(no se que es real|no distingo la realidad|estoy perdiendo la realidad|perdiendo la realidad)\b",
+        r"\b(recibo mensajes secretos|mensajes secretos)\b",
+    ]
+    matches = _match_regex(text, psychotic_patterns)
+    if matches:
+        return _result("high", "psychotic_symptoms", "Indicadores de posible pérdida de contacto con la realidad o síntomas psicóticos.", matches, False)
 
-    md = _contains_any(text, medical)
-    if md:
-        return SafetyResult("high", "medical_or_clinical_advice", True, False, "Solicitud de diagnóstico o ajuste de medicación.", md)
+    medical_patterns = [
+        r"\b(dejar|dejo|voy a dejar|suspender|suspendo|quitar|quitarme)\b.*\b(medicacion|medicamento|pastillas|antidepresivos|ansioliticos|tratamiento)",
+        r"\b(puedo|deberia|puedo dejar|es seguro)\b.*\b(dejar|suspender|quitar)\b.*\b(medicacion|medicamento|pastillas|antidepresivos|ansioliticos|tratamiento)",
+        r"\b(que dosis|cuanta dosis|cuantas pastillas|que medicamento|que medicacion)\b",
+        r"\b(diagnosticame|diagnostico|tengo depresion clinica|tengo esquizofrenia|tengo trastorno bipolar|soy bipolar)\b",
+    ]
+    matches = _match_regex(text, medical_patterns)
+    if matches:
+        return _result("high", "medical_or_clinical_advice", "Solicitud de diagnóstico, medicación o modificación de tratamiento.", matches, False)
 
-    ds = _contains_any(text, distress)
-    if ds:
-        return SafetyResult("medium", "emotional_distress", True, True, "Malestar emocional intenso sin plan de daño explícito.", ds)
+    severe_distress_patterns = [
+        r"\b(no puedo mas|no aguanto mas|estoy desesperado|estoy desesperada|todo me supera|no veo salida|me siento atrapado|me siento atrapada|me siento roto|me siento rota)\b",
+        r"\b(no puedo seguir asi|esto es insoportable|no se que hacer con mi vida)\b",
+    ]
+    matches = _match_regex(text, severe_distress_patterns)
+    if matches:
+        return _result("medium", "emotional_distress", "Malestar emocional intenso sin plan explícito de daño.", matches, True)
 
-    return SafetyResult("low", "normal", False, True, "Sin señales de riesgo relevantes.", [])
+    return _result("low", "normal", "Sin señales de riesgo relevantes.", [], True)
