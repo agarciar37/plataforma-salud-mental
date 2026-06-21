@@ -82,6 +82,20 @@ def classify_safety(message: str) -> SafetyResult:
     if not text:
         return _result("low", "normal", "Mensaje vacío o sin contenido analizable.", [], True)
 
+    # Expresiones coloquiales que contienen verbos sensibles pero no expresan riesgo real.
+    # Se evalúan antes de los patrones conservadores para reducir falsos positivos obvios.
+    benign_idiom_patterns = [
+        r"\b(me quiero morir de risa|me muero de risa|morirme de risa)\b",
+        r"\b(quiero matar el tiempo|matar el tiempo)\b",
+        r"\b(me tiro|me voy a tirar|voy a tirarme)\b.*\b(piscina)\b.*\b(verano|vacaciones|entrenamiento|competicion|competición|clase|fiesta)\b",
+    ]
+    dangerous_override_patterns = [
+        r"\b(ahogarme|ahogarse|no salir|no volver|desaparecer|morirme|no puedo mas|no aguanto mas|me da igual|corriente|tragar|arrastrar)\b",
+    ]
+    benign_matches = _match_regex(text, benign_idiom_patterns)
+    if benign_matches and not _match_regex(text, dangerous_override_patterns):
+        return _result("low", "normal", "Expresión coloquial sin señales de riesgo relevantes.", benign_matches, True)
+
     psychotic_crisis_patterns = [
         r"\b(voces|voz)\b.*\b(me dicen|me ordenan|me piden|quieren que|me mandan)\b.*\b(mate|matar|matarme|suicid|salte|saltar|tirarme|lanzarme|hacer dano|danar|apuñal|apunala|dispar|pegar|paliza)",
         r"\b(oigo|escucho)\b.*\b(voces|voz)\b.*\b(mate|matar|matarme|suicid|salte|saltar|tirarme|lanzarme|hacer dano|danar|pegar|paliza)",
@@ -116,6 +130,8 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(me estoy cortando|me acabo de cortar|estoy sangrando mucho|me estoy desangrando|he sangrado mucho)\b",
         r"\b(necesito|quiero)\b.*\b(cortarme|hacerme dano|autolesionarme)\b.*\b(sentir algo|calmarme|aguantar)",
         r"\b(no quiero estar aqui|me quiero ir para siempre|quiero irme para siempre|ya no quiero seguir|no pienso seguir|quiero desaparecer)\b",
+        r"\b(no pienso|no quiero|no voy a|ojala no|ojal[aá] no)\b.*\b(despertar|levantarme)\b.*\b(mañana|manana|nunca|otra vez)\b",
+        r"\b(hoy|esta noche|ahora)\b.*\b(despedirme de todos|me despido de todos|despedirme|decir adios|decir adiós)\b.*\b(luego hacerlo|despues hacerlo|después hacerlo|hacerlo)\b",
     ]
     matches = _match_regex(text, self_harm_patterns)
     if matches:
@@ -136,6 +152,8 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(monoxido|monoxido de carbono|humo del coche|tubo de escape|escape del coche|brasero|intoxicarme con humo|intoxicar con humo|asfixiarme con humo)\b",
         r"\b(intoxicarme|asfixiarme)\b.*\b(humo|gas|monoxido)",
         r"\b(dejar|dejare|voy a dejar)\b.*\b(brasero|calefactor|estufa|gas)\b.*\b(encendido|abierto)\b.*\b(dormir|no despertar)",
+        r"\b(cerrar|cerrado|he cerrado|encerrarme|me encierro)\b.*\b(garaje|garage)\b.*\b(coche|auto|vehiculo)\b.*\b(arrancado|encendido|humo|escape)",
+        r"\b(garaje|garage)\b.*\b(coche|auto|vehiculo)\b.*\b(arrancado|encendido|humo|escape)",
     ]
     matches = _match_regex(text, overdose_patterns)
     if matches:
@@ -177,6 +195,11 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(voy a provocar|quiero provocar|provocare|causare|voy a causar)\b.*\b(accidente|choque)",
         r"\b(saltar|tirarme|lanzarme|meterme|ponerme)\b.*\b(trafico|transito|coches|camiones|calzada)",
         r"\b(abrir el gas|dejar el gas abierto|encender el gas)\b.*\b(encerrado|encerrada|habitacion|cocina|casa|dormir|no despertar)",
+        r"\b(he puesto|me he puesto|me puse|ponerme|poner|atar|atarme)\b.*\b(bolsa|plastico|plástico)\b.*\b(cabeza|cara|cuello)",
+        r"\b(he puesto|me he puesto|me puse|ponerme|poner|atar|atarme)\b.*\b(cabeza|cara|cuello)\b.*\b(bolsa|plastico|plástico)",
+        r"\b(acercar|acercarme|asomar|asomarme|ponerme|sentarme|estar)\b.*\b(borde|cornisa)\b.*\b(barranco|azotea|balcon|balcón|puente|precipicio|acantilado|ventana)",
+        r"\b(borde|cornisa)\b.*\b(barranco|azotea|balcon|balcón|puente|precipicio|acantilado|ventana)\b.*\b(ya vere|ya veré|a ver que pasa|me da igual|no me importa|no puedo mas|no aguanto mas)",
+        r"\b(no quiero seguir|no puedo mas|no aguanto mas|ya esta|se acabo|me rindo)\b.*\b(voy|me voy|ire|iré)\b.*\b(rio|río|mar|lago|pantano|embalse|canal|corriente|agua)",
     ]
     matches = _match_regex(text, dangerous_behavior_patterns)
     if matches:
@@ -192,6 +215,7 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(quemar|incendiar|prender fuego)\b.*\b(casa|coche|oficina|colegio|instituto|trabajo|persona|gente)",
         r"\b(envenenar|echar veneno|poner veneno)\b.*\b(jefe|pareja|familia|vecino|vecina|comida|bebida|alguien)",
         r"\b(empujar|tirar)\b.*\b(a alguien|a una persona|a mi jefe|a mi pareja)\b.*\b(vias|tren|metro|carretera|balcon|puente)",
+        r"\b(voy a ir|ire|iré|me presentare|me presentaré|aparecere|apareceré)\b.*\b(trabajo|clase|instituto|colegio|universidad|oficina)\b.*\b(con|llevando)\b.*\b(cuchillo|navaja|pistola|arma|bate)",
     ]
     matches = _match_regex(text, harm_to_others_patterns)
     if matches:
@@ -227,6 +251,9 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(me han implantado|me implantaron|tengo implantado)\b.*\b(chip|dispositivo|microchip)",
         r"\b(hackean|hackearon|controlan)\b.*\b(mi cerebro|mi mente|mis pensamientos)",
         r"\b(todos estan contra mi|todo el mundo esta contra mi)\b.*\b(conspiracion|conspiran|me persiguen|me quieren hacer dano)",
+        r"\b(vecinos|policia|gobierno|familia|alguien)\b.*\b(han puesto|pusieron|instalaron|me pusieron)\b.*\b(microfonos|microfono|camaras|camara)\b.*\b(casa|habitacion|piso)",
+        r"\b(me estan leyendo|me leen|leen)\b.*\b(mente|pensamientos)\b.*\b(antena|antenas|5g|satelite|satelites|dron|drones)",
+        r"\b(antena|antenas|5g|satelite|satelites|dron|drones)\b.*\b(me lee|me leen|me estan leyendo|lee mi mente|leen mi mente|leen mis pensamientos)",
     ]
     matches = _match_regex(text, delusion_paranoia_patterns)
     if matches:
