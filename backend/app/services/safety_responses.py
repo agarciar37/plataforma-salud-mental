@@ -27,6 +27,15 @@ DANGEROUS_BEHAVIOR_RESPONSE = (
     "No tienes que afrontar esto solo/a. Lo más importante ahora es tu seguridad inmediata."
 )
 
+WATER_OR_DROWNING_RESPONSE = (
+    "Me preocupa mucho lo que acabas de decir, porque meterte o tirarte al agua, al río, al mar "
+    "o dejarte llevar por la corriente puede ponerte en peligro inmediato. Por favor, aléjate ahora mismo "
+    "de esa zona y busca un lugar seguro.\n\n"
+    "Si estás en España, llama al 112 o contacta inmediatamente con una persona de confianza que pueda acompañarte. "
+    "También puedes llamar al 024, la línea de atención a la conducta suicida.\n\n"
+    "No tienes que afrontar esto solo/a. Lo más importante ahora es tu seguridad inmediata."
+)
+
 SUBSTANCE_OR_OVERDOSE_RESPONSE = (
     "Me preocupa lo que estás planteando, porque tomar muchas pastillas, medicación o sustancias peligrosas "
     "puede poner tu vida en riesgo. Por favor, no lo hagas y aléjate de esas sustancias ahora mismo si las tienes cerca.\n\n"
@@ -80,6 +89,12 @@ def get_safety_response(risk_type: RiskType, matched_patterns: list[str] | None 
         for word in ["puente", "ventana", "balcon", "azotea", "tejado", "precipicio", "acantilado", "terraza"]
     ):
         return BRIDGE_OR_HEIGHT_RESPONSE
+
+    if risk_type == "dangerous_behavior" and any(
+        word in joined_patterns
+        for word in ["rio", "mar", "lago", "pantano", "embalse", "canal", "corriente", "agua", "ahog"]
+    ):
+        return WATER_OR_DROWNING_RESPONSE
 
     mapping = {
         "self_harm": CRISIS_SELF_HARM_RESPONSE,

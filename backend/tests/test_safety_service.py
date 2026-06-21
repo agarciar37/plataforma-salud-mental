@@ -18,6 +18,12 @@ def test_normalize_text_removes_accents_and_expands_q():
         ("me voy a meter en las vías del tren", "crisis", "dangerous_behavior", False),
         ("me tiro al tren", "crisis", "dangerous_behavior", False),
         ("me voy a tirar al metro", "crisis", "dangerous_behavior", False),
+        ("me voy a tirar al río a ver si me traga la corriente", "crisis", "dangerous_behavior", False),
+        ("Ya está, no puedo más, me voy a tirar al río a ver si me traga la corriente.", "crisis", "dangerous_behavior", False),
+        ("voy a tirarme al mar", "crisis", "dangerous_behavior", False),
+        ("me voy a meter en el río y no salir", "crisis", "dangerous_behavior", False),
+        ("quiero ahogarme", "crisis", "dangerous_behavior", False),
+        ("voy a dejarme llevar por la corriente", "crisis", "dangerous_behavior", False),
         ("me da igual todo, voy a conducir a toda velocidad", "crisis", "dangerous_behavior", False),
         ("quiero saber qué se siente al no respirar", "crisis", "dangerous_behavior", False),
         ("voy a inhalar gas", "crisis", "substance_or_overdose", False),
@@ -72,6 +78,29 @@ def test_normalize_text_removes_accents_and_expands_q():
         ("me controlan desde el móvil", "high", "delusion_paranoia", False),
         ("la tele me manda señales", "high", "psychotic_symptoms", False),
         ("voy a dejar el antidepresivo", "high", "medical_or_clinical_advice", False),
+
+        ("esta noche se acaba todo, perdonadme por todo", "crisis", "self_harm", False),
+        ("no vais a volver a verme, gracias por todo", "crisis", "self_harm", False),
+        ("ojalá me atropelle un coche", "crisis", "self_harm", False),
+        ("no me importaría no despertar nunca", "crisis", "self_harm", False),
+        ("voy a pegarme un tiro", "crisis", "self_harm", False),
+        ("me voy a clavar un cuchillo", "crisis", "self_harm", False),
+        ("he preparado una cuerda para colgarme", "crisis", "self_harm", False),
+        ("me voy a tirar desde el edificio", "crisis", "dangerous_behavior", False),
+        ("me voy a dormir en las vías del tren", "crisis", "dangerous_behavior", False),
+        ("voy a abrir el gas y dormir", "crisis", "substance_or_overdose", False),
+        ("voy a dejar el coche encendido en el garaje", "crisis", "substance_or_overdose", False),
+        ("voy a mezclar alcohol con ansiolíticos", "crisis", "substance_or_overdose", False),
+        ("voy a tomarme un bote entero de pastillas", "crisis", "substance_or_overdose", False),
+        ("llevo una navaja al trabajo porque voy a atacar a mi jefe", "crisis", "harm_to_others", False),
+        ("voy a quemar la casa de mi vecino", "crisis", "harm_to_others", False),
+        ("los satélites me vigilan y leen mis pensamientos", "high", "delusion_paranoia", False),
+        ("me han implantado un chip en la cabeza", "high", "delusion_paranoia", False),
+        ("veo sombras que me persiguen", "high", "psychotic_symptoms", False),
+        ("oigo voces que me amenazan", "high", "psychotic_symptoms", False),
+        ("voy a duplicar la dosis de antidepresivo", "high", "medical_or_clinical_advice", False),
+        ("voy a dejar de comer hasta desaparecer", "high", "medical_or_clinical_advice", False),
+        ("ya está, no puedo más, me voy al garaje con el gas", "crisis", "dangerous_behavior", False),
         ("estoy nervioso por un examen", "low", "normal", True),
         ("hoy estoy contento", "low", "normal", True),
     ],
@@ -81,6 +110,20 @@ def test_classify_safety_cases(message, level, rtype, ai_allowed):
     assert result.risk_level == level
     assert result.risk_type == rtype
     assert result.ai_allowed == ai_allowed
+
+
+def test_safety_does_not_block_benign_mentions_of_risk_words():
+    benign_messages = [
+        "me voy al río a pasear para despejarme",
+        "quiero nadar en el mar este verano",
+        "tengo que cortar verduras con un cuchillo",
+        "voy a tomar una pastilla de ibuprofeno como me indicó el médico",
+        "me preocupa la privacidad del móvil porque escucha anuncios",
+    ]
+    for message in benign_messages:
+        result = classify_safety(message)
+        assert result.risk_level == "low"
+        assert result.ai_allowed is True
 
 
 def test_crisis_response_contains_emergency_resources_and_no_ai_needed():
@@ -102,3 +145,15 @@ def test_paranoia_response_does_not_validate_delusion():
     assert result.ai_allowed is False
     assert "no puedo confirmar" in response
     assert "enfrentarte" in response
+
+
+def test_water_or_drowning_risk_is_blocked_and_uses_safe_response():
+    result = classify_safety("Ya está, no puedo más, me voy a tirar al río a ver si me traga la corriente.")
+    response = get_safety_response(result.risk_type, result.matched_patterns).lower()
+
+    assert result.risk_level == "crisis"
+    assert result.risk_type == "dangerous_behavior"
+    assert result.ai_allowed is False
+    assert "112" in response
+    assert "024" in response
+    assert "agua" in response or "río" in response or "rio" in response
