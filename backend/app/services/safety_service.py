@@ -106,6 +106,15 @@ def classify_safety(message: str) -> SafetyResult:
     if matches:
         return _result("crisis", "psychotic_symptoms", "Síntomas psicóticos con posible orden de daño.", matches, False)
 
+    early_harm_to_others_patterns = [
+        r"\b(voy a|quiero|me voy a|pienso|he decidido|tengo ganas de|estoy pensando en)\b.*\b(matar|asesinar|apuñalar|apunalar|disparar|atacar|golpear|pegar|hacer dano|hacerle dano|danar|envenenar|atropellar|empujar)\b.*\b(a alguien|a una persona|a mi|a mi jefe|a mi pareja|a mi madre|a mi padre|a mi hermano|a mi hermana|a mi compañero|a mi companero|a mi profesor|a mis vecinos|a la gente|en clase|en el trabajo|en el colegio|en el instituto)",
+        r"\b(voy a|quiero|me voy a|pienso)\b.*\b(hacer explotar|explotar|poner una bomba|detonar|volar)\b.*\b(colegio|instituto|universidad|oficina|trabajo|casa|edificio|clase)",
+        r"\b(voy a|quiero|me voy a|pienso)\b.*\b(atropellar|arrollar|pasar por encima)\b.*\b(a alguien|a una persona|a la gente|a mi jefe|a mi pareja|a mi compañero|a mi companero)",
+    ]
+    matches = _match_regex(text, early_harm_to_others_patterns)
+    if matches:
+        return _result("crisis", "harm_to_others", "Posible intención de dañar a terceros.", matches, False)
+
     self_harm_patterns = [
         r"\b(me quiero|quiero|voy a|me voy a|pienso|necesito|he decidido|estoy pensando en)\b.*\b(suicidar|suicidarme|matarme|morirme|morir|quitarme la vida|quitar la vida|acabar con mi vida|acabar con todo|acabar con esto)",
         r"\b(tengo un plan|he preparado un plan|ya lo tengo planeado)\b.*\b(acabar con mi vida|matarme|suicidarme|quitarme la vida|morir)",
@@ -132,6 +141,11 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(no quiero estar aqui|me quiero ir para siempre|quiero irme para siempre|ya no quiero seguir|no pienso seguir|quiero desaparecer)\b",
         r"\b(no pienso|no quiero|no voy a|ojala no|ojal[aá] no)\b.*\b(despertar|levantarme)\b.*\b(mañana|manana|nunca|otra vez)\b",
         r"\b(hoy|esta noche|ahora)\b.*\b(despedirme de todos|me despido de todos|despedirme|decir adios|decir adiós)\b.*\b(luego hacerlo|despues hacerlo|después hacerlo|hacerlo)\b",
+        r"\b(voy a|quiero|me voy a|pienso|necesito)\b.*\b(poner fin a esto|terminar con mi sufrimiento|terminar con esto|acabar con mi sufrimiento|terminar de una vez)\b",
+        r"\b(esta es mi ultima noche|esta sera mi ultima noche|hoy es mi ultima noche|ultima noche)\b",
+        r"\b(adios a todos|adiós a todos)\b.*\b(gracias por todo|perdon|lo siento)\b",
+        r"\b(he repartido|voy a repartir|estoy repartiendo)\b.*\b(mis cosas|mis pertenencias|todo lo mio)\b",
+        r"\b(necesito|quiero|voy a)\b.*\b(ver sangre|sangrar|hacerme sangrar)\b",
     ]
     matches = _match_regex(text, self_harm_patterns)
     if matches:
@@ -154,6 +168,7 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(dejar|dejare|voy a dejar)\b.*\b(brasero|calefactor|estufa|gas)\b.*\b(encendido|abierto)\b.*\b(dormir|no despertar)",
         r"\b(cerrar|cerrado|he cerrado|encerrarme|me encierro)\b.*\b(garaje|garage)\b.*\b(coche|auto|vehiculo)\b.*\b(arrancado|encendido|humo|escape)",
         r"\b(garaje|garage)\b.*\b(coche|auto|vehiculo)\b.*\b(arrancado|encendido|humo|escape)",
+        r"\b(voy a|quiero|me voy a|pienso)\b.*\b(beber|tomar|ingerir|tragar)\b.*\b(lejia|lejía|veneno|raticida|matarratas|salfuman|salfumán|acido|ácido)",
     ]
     matches = _match_regex(text, overdose_patterns)
     if matches:
@@ -200,6 +215,14 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(acercar|acercarme|asomar|asomarme|ponerme|sentarme|estar)\b.*\b(borde|cornisa)\b.*\b(barranco|azotea|balcon|balcón|puente|precipicio|acantilado|ventana)",
         r"\b(borde|cornisa)\b.*\b(barranco|azotea|balcon|balcón|puente|precipicio|acantilado|ventana)\b.*\b(ya vere|ya veré|a ver que pasa|me da igual|no me importa|no puedo mas|no aguanto mas)",
         r"\b(no quiero seguir|no puedo mas|no aguanto mas|ya esta|se acabo|me rindo)\b.*\b(voy|me voy|ire|iré)\b.*\b(rio|río|mar|lago|pantano|embalse|canal|corriente|agua)",
+        r"\b(caminar|andar|irme|meterme|entrar)\b.*\b(mar|rio|río|lago|agua)\b.*\b(hasta perderme|hasta no volver|sin volver|de noche|y que pase lo que tenga que pasar)",
+        r"\b(quedarme|quedar|permanecer)\b.*\b(bajo el agua|debajo del agua|sumergido|sumergida)",
+        r"\b(hundirme|sumergirme)\b.*\b(rio|río|mar|lago|agua|pantano|embalse)",
+        r"\b(asomarme|me asomo|asomar)\b.*\b(ventana|balcon|balcón|azotea|terraza)\b.*\b(no pienso volver atras|no pienso volver atrás|no volver|me da igual)",
+        r"\b(quiero|voy a|me voy a|pienso)\b.*\b(caer|lanzarme|tirarme)\b.*\b(desde muy alto|de muy alto|lugar alto|sitio alto)",
+        r"\b(voy a|quiero|me voy a|pienso)\b.*\b(soltar el volante|quitar las manos del volante|cerrar los ojos conduciendo)",
+        r"\b(voy a|quiero|me voy a|pienso)\b.*\b(aguantar la respiracion|aguantar la respiración|dejar de respirar)\b.*\b(hasta no poder mas|hasta no poder más|hasta desmayarme|hasta perder el conocimiento)",
+        r"\b(voy a|quiero|me voy a|pienso|necesito)\b.*\b(dejar de respirar|no respirar)\b",
     ]
     matches = _match_regex(text, dangerous_behavior_patterns)
     if matches:
@@ -216,6 +239,8 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(envenenar|echar veneno|poner veneno)\b.*\b(jefe|pareja|familia|vecino|vecina|comida|bebida|alguien)",
         r"\b(empujar|tirar)\b.*\b(a alguien|a una persona|a mi jefe|a mi pareja)\b.*\b(vias|tren|metro|carretera|balcon|puente)",
         r"\b(voy a ir|ire|iré|me presentare|me presentaré|aparecere|apareceré)\b.*\b(trabajo|clase|instituto|colegio|universidad|oficina)\b.*\b(con|llevando)\b.*\b(cuchillo|navaja|pistola|arma|bate)",
+        r"\b(voy a|quiero|me voy a|pienso)\b.*\b(hacer explotar|explotar|poner una bomba|detonar|volar)\b.*\b(colegio|instituto|universidad|oficina|trabajo|casa|edificio|clase)",
+        r"\b(voy a|quiero|me voy a|pienso)\b.*\b(atropellar|arrollar)\b.*\b(a alguien|a una persona|a la gente)",
     ]
     matches = _match_regex(text, harm_to_others_patterns)
     if matches:
@@ -231,6 +256,9 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(veo sombras|veo figuras|veo personas)\b.*\b(me siguen|me persiguen|me observan|me amenazan)",
         r"\b(la ia|el algoritmo|internet)\b.*\b(me manda mensajes|me envia mensajes|me habla|me da señales|me da senales)",
         r"\b(oigo|escucho)\b.*\b(voces|susurros)\b.*\b(insultan|amenazan|persiguen|controlan)",
+        r"\b(los extraterrestres|extraterrestres|alienigenas|aliens)\b.*\b(me hablan|me mandan mensajes|me envian señales|me envian senales|me controlan)",
+        r"\b(veo|estoy viendo)\b.*\b(gente|personas|figuras|sombras)\b.*\b(que nadie mas ve|que nadie más ve|que otros no ven)",
+        r"\b(hay|veo)\b.*\b(sombras|figuras)\b.*\b(en mi cuarto|en mi habitacion|en mi habitación|en casa|al lado de mi cama)",
     ]
     matches = _match_regex(text, psychotic_patterns)
     if matches:
@@ -254,6 +282,11 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(vecinos|policia|gobierno|familia|alguien)\b.*\b(han puesto|pusieron|instalaron|me pusieron)\b.*\b(microfonos|microfono|camaras|camara)\b.*\b(casa|habitacion|piso)",
         r"\b(me estan leyendo|me leen|leen)\b.*\b(mente|pensamientos)\b.*\b(antena|antenas|5g|satelite|satelites|dron|drones)",
         r"\b(antena|antenas|5g|satelite|satelites|dron|drones)\b.*\b(me lee|me leen|me estan leyendo|lee mi mente|leen mi mente|leen mis pensamientos)",
+        r"\b(gobierno|policia|policía|servicios secretos|cia|fbi)\b.*\b(me esta siguiendo|me está siguiendo|me estan siguiendo|me están siguiendo|me vigila|me vigilan|me controla|me controlan)",
+        r"\b(me han puesto|han puesto|instalaron|han instalado)\b.*\b(camaras|cámaras|camara|cámara|microfonos|micrófonos)\b.*\b(baño|bano|ducha|habitacion|habitación|casa|piso)",
+        r"\b(me estan controlando|me están controlando|me controlan|me controla)\b.*\b(ondas|wifi|wi fi|internet|radiofrecuencia|antenas|5g)",
+        r"\b(hay|tengo)\b.*\b(chip|microchip|dispositivo)\b.*\b(brazo|mano|cuerpo|piel|cabeza)",
+        r"\b(tele|television|televisión|tv|radio)\b.*\b(me manda|me envia|me envía|me habla)\b.*\b(señales|senales|mensajes|ordenes|órdenes)",
     ]
     matches = _match_regex(text, delusion_paranoia_patterns)
     if matches:
@@ -267,6 +300,8 @@ def classify_safety(message: str) -> SafetyResult:
         r"\b(duplicar|doblar|subir|aumentar|bajar|reducir)\b.*\b(dosis|medicacion|medicamento|pastillas|antidepresivo|ansiolitico)",
         r"\b(voy a tomar mas|me voy a tomar mas|tomare mas)\b.*\b(medicacion|medicamento|pastillas|antidepresivo|ansiolitico)",
         r"\b(no voy a comer|dejar de comer|voy a dejar de comer)\b.*\b(hasta desaparecer|hasta morirme|para siempre|no me importa)",
+        r"\b(he dejado|deje|dejé|voy a dejar|dejo)\b.*\b(medicacion|medicación|medicamento|pastillas|antidepresivo|ansiolitico|ansiolítico|tratamiento)\b.*\b(me controla|me controlan|porque me controla|porque me controlan)",
+        r"\b(me voy a tomar|voy a tomar|tomare|tomaré|quiero tomar)\b.*\b(doble|el doble|dos veces|mas|más)\b.*\b(medicacion|medicación|medicamento|pastillas|dosis|antidepresivo|ansiolitico|ansiolítico)",
     ]
     matches = _match_regex(text, medical_patterns)
     if matches:
@@ -275,10 +310,10 @@ def classify_safety(message: str) -> SafetyResult:
     # Fallback contextual: combina desesperanza/finalidad con medios o lugares peligrosos.
     # Esto reduce falsos negativos ante frases que no usan las expresiones exactas anteriores.
     finality_or_despair_patterns = [
-        r"\b(ya esta|se acabo|hasta aqui|no puedo mas|no aguanto mas|no veo salida|me rindo|me despido|adios a todos|perdonadme por todo|no vais a volver a verme|esta noche termina todo|hoy termina todo|hoy se acaba todo)\b",
+        r"\b(ya esta|se acabo|hasta aqui|no puedo mas|no aguanto mas|no veo salida|me rindo|me despido|adios a todos|adiós a todos|perdonadme por todo|no vais a volver a verme|esta noche termina todo|hoy termina todo|hoy se acaba todo|ultima noche|última noche|poner fin|terminar con mi sufrimiento|hacer algo malo|no respondo de mis actos|hacer una tonteria|hacer una tontería)\b",
     ]
     danger_context_patterns = [
-        r"\b(rio|mar|lago|pantano|embalse|canal|corriente|agua|puente|ventana|balcon|azotea|tejado|edificio|piso|tren|metro|vias|carretera|autopista|coche|camion|gas|monoxido|pastillas|medicacion|cuchillo|navaja|cuerda|soga|arma|pistola|veneno|lejia|cloro)\b",
+        r"\b(rio|río|mar|lago|pantano|embalse|canal|corriente|agua|puente|ventana|balcon|balcón|azotea|tejado|edificio|piso|tren|metro|vias|vías|carretera|autopista|coche|camion|camión|gas|monoxido|monóxido|pastillas|medicacion|medicación|cuchillo|navaja|cuerda|soga|arma|pistola|veneno|lejia|lejía|cloro|garaje|garage|volante|bolsa|plastico|plástico)\b",
     ]
     finality_matches = _match_regex(text, finality_or_despair_patterns)
     danger_matches = _match_regex(text, danger_context_patterns)
@@ -292,14 +327,14 @@ def classify_safety(message: str) -> SafetyResult:
         )
 
     farewell_patterns = [
-        r"\b(no vais a volver a verme|perdonadme por todo|gracias por todo y adios|me despido de todos|esta es mi despedida|esta noche termina todo|hoy termina todo|hoy se acaba todo|nota de despedida|carta de despedida|si mañana no estoy|si manana no estoy)\b",
+        r"\b(no vais a volver a verme|perdonadme por todo|gracias por todo y adios|gracias por todo y adiós|adios a todos gracias por todo|adiós a todos gracias por todo|me despido de todos|esta es mi despedida|esta noche termina todo|hoy termina todo|hoy se acaba todo|nota de despedida|carta de despedida|si mañana no estoy|si manana no estoy|esta es mi ultima noche|esta es mi última noche)\b",
     ]
     matches = _match_regex(text, farewell_patterns)
     if matches:
         return _result("crisis", "self_harm", "Mensaje de despedida o finalidad con posible riesgo autolesivo.", matches, False)
 
     ambiguous_high_risk_patterns = [
-        r"\b(voy a hacer una locura|voy a cometer una locura|voy a hacer una estupidez|voy a hacer algo irreversible|voy a hacer algo de lo que me arrepentire)\b",
+        r"\b(voy a hacer una locura|voy a cometer una locura|voy a hacer una estupidez|voy a hacer algo irreversible|voy a hacer algo de lo que me arrepentire|voy a hacer algo de lo que me arrepentiré|voy a hacer algo malo|no respondo de mis actos|puede que hoy haga una tonteria|puede que hoy haga una tontería)\b",
     ]
     matches = _match_regex(text, ambiguous_high_risk_patterns)
     if matches:

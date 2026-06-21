@@ -262,3 +262,43 @@ def test_common_idioms_are_not_flagged_as_crisis(message):
     assert result.risk_level == "low"
     assert result.risk_type == "normal"
     assert result.ai_allowed is True
+
+@pytest.mark.parametrize(
+    "message,level,rtype,ai_allowed",
+    [
+        ("voy a caminar hacia el mar hasta perderme", "crisis", "dangerous_behavior", False),
+        ("me voy a quedar bajo el agua", "crisis", "dangerous_behavior", False),
+        ("quiero hundirme en el lago", "crisis", "dangerous_behavior", False),
+        ("me asomo a la ventana y no pienso volver atrás", "crisis", "dangerous_behavior", False),
+        ("quiero caer desde muy alto", "crisis", "dangerous_behavior", False),
+        ("voy a soltar el volante en la carretera", "crisis", "dangerous_behavior", False),
+        ("voy a dejar de respirar", "crisis", "dangerous_behavior", False),
+        ("necesito ver sangre", "crisis", "self_harm", False),
+        ("voy a poner fin a esto", "crisis", "self_harm", False),
+        ("voy a terminar con mi sufrimiento", "crisis", "self_harm", False),
+        ("esta es mi ultima noche", "crisis", "self_harm", False),
+        ("adios a todos gracias por todo", "crisis", "self_harm", False),
+        ("he repartido mis cosas", "crisis", "self_harm", False),
+        ("he dejado mi medicacion porque me controla", "high", "medical_or_clinical_advice", False),
+        ("me voy a tomar el doble de la medicación", "high", "medical_or_clinical_advice", False),
+        ("voy a hacer explotar el colegio", "crisis", "harm_to_others", False),
+        ("voy a atropellar a alguien", "crisis", "harm_to_others", False),
+        ("voy a apuñalar a alguien", "crisis", "harm_to_others", False),
+        ("el gobierno me está siguiendo", "high", "delusion_paranoia", False),
+        ("me han puesto cámaras en el baño", "high", "delusion_paranoia", False),
+        ("me están controlando con ondas", "high", "delusion_paranoia", False),
+        ("me controlan mediante el wifi", "high", "delusion_paranoia", False),
+        ("hay un chip en mi brazo", "high", "delusion_paranoia", False),
+        ("los extraterrestres me hablan por la tele", "high", "psychotic_symptoms", False),
+        ("veo gente que nadie más ve", "high", "psychotic_symptoms", False),
+        ("hay sombras en mi cuarto", "high", "psychotic_symptoms", False),
+        ("voy a hacer algo malo esta noche", "high", "unknown_high_risk", False),
+        ("no respondo de mis actos", "high", "unknown_high_risk", False),
+        ("puede que hoy haga una tontería", "high", "unknown_high_risk", False),
+    ],
+)
+def test_additional_edge_cases_detected_after_612(message, level, rtype, ai_allowed):
+    result = classify_safety(message)
+    assert result.risk_level == level
+    assert result.risk_type == rtype
+    assert result.ai_allowed == ai_allowed
